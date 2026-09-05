@@ -39,6 +39,16 @@ class TimeFst(GraphFst):
         graph_h = hour + insert_space + insert_mani
         graph_hm = graph_h + delete_space + insert_space + minute + insert_space + insert_minute
         graph_hms = graph_hm + delete_space + insert_space + second + insert_space + insert_second
+        graph_hs = graph_h + delete_space + insert_space + second + insert_space + insert_second
 
-        self.graph = graph_hms | graph_hm | graph_h
+        meridiem = pynini.closure(
+            pynutil.delete('meridiem: "')
+            + pynini.closure(NOT_QUOTE, 1)
+            + pynutil.delete('"')
+            + delete_space
+            + insert_space,
+            0,
+            1,
+        )
+        self.graph = meridiem + (graph_hms | graph_hm | graph_hs | graph_h)
         self.fst = self.delete_tokens(self.graph).optimize()

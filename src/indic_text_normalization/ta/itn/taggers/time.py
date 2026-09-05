@@ -27,8 +27,10 @@ class TimeFst(GraphFst):
         minutes = pynutil.insert(' minutes: "') + cardinal.words_to_digits + pynutil.insert('"')
         seconds = pynutil.insert(' seconds: "') + cardinal.words_to_digits + pynutil.insert('"')
 
-        graph_h = hours + delete_space + mani
-        graph_hm = graph_h + delete_space + minutes + delete_space + minute_word
+        # Bare "X மணி" is a duration (two hours), not a clock time; the hour-only
+        # form converts only for the unambiguous "X மணிக்கு".
+        graph_h = hours + delete_space + pynutil.delete("மணிக்கு")
+        graph_hm = hours + delete_space + mani + delete_space + minutes + delete_space + minute_word
         graph_hms = graph_hm + delete_space + seconds + delete_space + second_word
 
         graph = (graph_hms | graph_hm | graph_h) + pynutil.insert(" preserve_order: true")

@@ -16,3 +16,7 @@ build/
 
 # Compiled grammar archives
 *.far
+
+# Benchmark artefacts
+benchmarks/reports/
+benchmarks/.far_cache/

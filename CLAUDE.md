@@ -64,7 +64,8 @@ Project rules for Claude Code and contributors. This is a **Python library for n
 
 - Every normalization rule requires **golden-file tests**: input → expected output pairs stored in UTF-8 test data files under `tests/data/<script>/`, one case per line with a description.
 - Test data files must be reviewed with `hexdump`/code-point dumps in mind — invisible characters (ZWJ/ZWNJ, combining marks) are the whole point of this project. Never let an editor or formatter "clean up" test data files; exclude `tests/data/` from black and any pre-commit whitespace hooks.
-- Every bug fix adds a regression case to the golden files before the fix is merged.
+- **Every fix ships with a unit test case, no exceptions.** Any change that alters grammar behavior (a bug fix, a weight change, a data-table edit) adds a golden regression case to `tests/data/<lang>/{tn,itn}/<class>.txt` in the same change — including cases that document intentional rejections (e.g. an invalid date falling back to a number reading). A fix without a test case is not done.
+- **After changing a semiotic class, run that class's unit tests before anything else**: `uv run pytest tests/<lang>/test_<class>.py` (e.g. `uv run pytest tests/ta/test_date.py` after touching `ta/*/taggers/date.py`, its verbalizers, or its data files). A change to `cardinal` also requires the classes that consume it (decimal, fraction, ordinal, date, time, money) plus `test_idempotency.py`. Run the full suite before finishing the task.
 - Test **idempotency** for every transform: `normalize(normalize(x)) == normalize(x)` must hold, property-tested with `hypothesis` over the relevant Unicode ranges.
 - Test round-trip safety where a transform claims reversibility.
 - Include at least one mixed-script and one empty/whitespace-only case per transform.

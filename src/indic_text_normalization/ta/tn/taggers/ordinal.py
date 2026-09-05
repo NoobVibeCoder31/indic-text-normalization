@@ -40,8 +40,11 @@ class OrdinalFst(GraphFst):
 
         suffix_vathu = pynutil.delete(pynini.union("வது", "ஆவது", "-வது")) + pynutil.insert("வது")
         suffix_aam = pynutil.delete("ஆம்") + pynutil.insert("ம்")
+        # 3ஆவதாக -> மூன்றாவதாக, 5வதுக்கு -> ஐந்தாவதுக்கு.
+        suffix_aaga = pynutil.delete(pynini.union("ஆவதாக", "வதாக")) + pynutil.insert("வதாக")
+        optional_kku = pynini.closure(pynini.accep("க்கு"), 0, 1)
 
-        graph = stem + pynini.union(suffix_vathu, suffix_aam)
+        graph = stem + pynini.union(suffix_vathu + optional_kku, suffix_aam, suffix_aaga)
 
         final_graph = pynutil.insert('integer: "') + graph + pynutil.insert('"')
         self.fst = self.add_tokens(final_graph).optimize()

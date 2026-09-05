@@ -47,10 +47,11 @@ ignore = ["E501", "RUF001", "RUF002", "RUF003"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["S101"]
+"benchmarks/**/*.py" = ["S311"]
 
 [tool.mypy]
 strict = true
-files = ["src", "tests"]
+files = ["src", "tests", "benchmarks"]
 
 [[tool.mypy.overrides]]
 module = "pynini.*"

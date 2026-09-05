@@ -58,6 +58,17 @@ See `CLAUDE.md` for the full project rules and `NOTICE` for third-party attribut
 (NeMo-text-processing, Kenpath indic-text-normalization; spoken-number variants adapted
 from [indic-num2words](https://github.com/raj-sutariya/indic-num2words)).
 
+## Benchmarks
+
+`benchmarks/ta_tn_benchmark.csv` holds 10k+ Tamil TN rows (`input,expected,type`).
+Run it in parallel and get accuracy per semiotic class plus a mismatch report:
+
+```bash
+uv run python benchmarks/run_benchmark.py benchmarks/ta_tn_benchmark.csv --workers 8
+```
+
+See `benchmarks/README.md` for the schema and how the dataset is generated.
+
 ## Adding a language
 
 1. Create `src/indic_text_normalization/<lang>/` with `data/`, `tn/`, and `itn/`

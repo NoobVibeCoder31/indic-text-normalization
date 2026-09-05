@@ -73,6 +73,11 @@ class TelephoneFst(GraphFst):
             1,
         )
 
-        graph = optional_country_code + number_part + optional_extension
+        # Standalone country code, e.g. "+91 என்பது குறியீடு".
+        country_code_only = (
+            pynutil.delete('country_code: "') + pynini.closure(NOT_QUOTE, 1) + pynutil.delete('"')
+        )
+
+        graph = (optional_country_code + number_part + optional_extension) | country_code_only
         delete_tokens = self.delete_tokens(graph)
         self.fst = delete_tokens.optimize()

@@ -30,9 +30,11 @@ from indic_text_normalization.ta.tn.taggers.cardinal import CardinalFst
 from indic_text_normalization.ta.tn.taggers.date import DateFst
 from indic_text_normalization.ta.tn.taggers.decimal import DecimalFst
 from indic_text_normalization.ta.tn.taggers.fraction import FractionFst
+from indic_text_normalization.ta.tn.taggers.measure import MeasureFst
 from indic_text_normalization.ta.tn.taggers.money import MoneyFst
 from indic_text_normalization.ta.tn.taggers.ordinal import OrdinalFst
 from indic_text_normalization.ta.tn.taggers.punctuation import PunctuationFst
+from indic_text_normalization.ta.tn.taggers.range import RangeFst
 from indic_text_normalization.ta.tn.taggers.telephone import TelephoneFst
 from indic_text_normalization.ta.tn.taggers.time import TimeFst
 from indic_text_normalization.ta.tn.taggers.whitelist import WhiteListFst
@@ -50,21 +52,25 @@ class ClassifyFst(GraphFst):
         cardinal = CardinalFst(deterministic=deterministic)
         decimal = DecimalFst(cardinal=cardinal, deterministic=deterministic)
         fraction = FractionFst(cardinal=cardinal, deterministic=deterministic)
+        measure = MeasureFst(cardinal=cardinal, decimal=decimal, deterministic=deterministic)
         time = TimeFst()
         date = DateFst(cardinal=cardinal)
         money = MoneyFst(cardinal=cardinal)
-        telephone = TelephoneFst(deterministic=deterministic)
+        telephone = TelephoneFst(cardinal=cardinal, deterministic=deterministic)
         ordinal = OrdinalFst(cardinal=cardinal, deterministic=deterministic)
+        number_range = RangeFst(cardinal=cardinal, deterministic=deterministic)
         whitelist = WhiteListFst(deterministic=deterministic)
         punctuation = PunctuationFst(deterministic=deterministic)
 
         classify = (
             pynutil.add_weight(whitelist.fst, 1.01)
             | pynutil.add_weight(telephone.fst, 0.5)
+            | pynutil.add_weight(measure.fst, 1.03)
             | pynutil.add_weight(date.fst, 1.04)
             | pynutil.add_weight(time.fst, 1.05)
             | pynutil.add_weight(fraction.fst, 1.06)
             | pynutil.add_weight(decimal.fst, 1.08)
+            | pynutil.add_weight(number_range.fst, 1.09)
             | pynutil.add_weight(cardinal.fst, 1.1)
             | pynutil.add_weight(money.fst, 1.1)
             | pynutil.add_weight(ordinal.fst, 1.1)
@@ -111,4 +117,45 @@ class ClassifyFst(GraphFst):
             pynini.cross("-", " "), pynini.union(DIGIT, TA_DIGIT), ta_letter, SIGMA
         )
 
-        self.fst = (joiner_hyphen_to_space @ graph).optimize()
+        # Split math/percent symbols off digits so the whitelist can verbalize them,
+        # e.g. "5×3=15" -> "5 × 3 = 15", "5%" -> "5 %".
+        any_digit = pynini.union(DIGIT, TA_DIGIT)
+        operator = pynini.union("×", "÷", "%", "=")
+        space_after_digit = pynini.cdrewrite(pynutil.insert(" "), any_digit, operator, SIGMA)
+        space_before_digit = pynini.cdrewrite(pynutil.insert(" "), operator, any_digit, SIGMA)
+        # "%" glued to punctuation, e.g. "(1.5%)", also needs splitting.
+        trailing_punct = pynini.union(*[pynini.escape(c) for c in "()\"'{}[].,!?%"])
+        space_after_percent = pynini.cdrewrite(pynutil.insert(" "), "%", trailing_punct, SIGMA)
+
+        # A hyphen between a digit and a case/ordinal suffix belongs to the
+        # suffix (3-வது, 2024-ல், 100-க்கு).
+        drop_ordinal_hyphen = pynini.cdrewrite(
+            pynutil.delete("-"),
+            any_digit,
+            pynini.union("வது", "ஆவது", "ஆம்", "ல்", "இல்", "க்கு", "கள்", "களில்"),
+            SIGMA,
+        )
+
+        # %க்கு reads as a dative percent word.
+        percent_kku = pynini.cdrewrite(
+            pynini.cross("%க்கு", " சதவீதத்துக்கு"), any_digit, "", SIGMA
+        )
+
+        # A hyphen inside an equation is a minus, not a range: 5-3=2, 10-5-3=2.
+        subtraction_minus = pynini.cdrewrite(
+            pynini.cross("-", " மைனஸ் "),
+            any_digit,
+            pynini.closure(pynini.union(any_digit, "-"), 1) + "=",
+            SIGMA,
+        )
+
+        self.fst = (
+            drop_ordinal_hyphen
+            @ percent_kku
+            @ subtraction_minus
+            @ space_after_digit
+            @ space_before_digit
+            @ space_after_percent
+            @ joiner_hyphen_to_space
+            @ graph
+        ).optimize()

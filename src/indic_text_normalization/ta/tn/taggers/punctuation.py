@@ -23,16 +23,11 @@ class PunctuationFst(GraphFst):
         super().__init__(name="punctuation", kind="classify", deterministic=deterministic)
         s = "!#%&'()*+,-./:;<=>?@^_`{|}~\""
 
-        punct_symbols_to_exclude = ["[", "]"]
-        punct_unicode = [
-            chr(i)
-            for i in range(sys.maxunicode)
-            if category(chr(i)).startswith("P") and chr(i) not in punct_symbols_to_exclude
-        ]
+        punct_unicode = [chr(i) for i in range(sys.maxunicode) if category(chr(i)).startswith("P")]
 
         self.punct_marks = [p for p in punct_unicode + list(s)]
 
-        punct = pynini.union(*self.punct_marks)
+        punct = pynini.union(*[pynini.escape(p) for p in self.punct_marks])
         punct = pynini.closure(punct, 1)
 
         # Verbalize "=" everywhere (not only inside MathFst) using the shared math operator mapping.

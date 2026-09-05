@@ -51,15 +51,19 @@ class MoneyFst(GraphFst):
             pynutil.delete('currency_maj: "') + pynini.closure(NOT_QUOTE, 1) + pynutil.delete('"')
         )
 
-        integer_part = (
-            pynutil.delete('integer_part: "') + pynini.closure(NOT_QUOTE, 1) + pynutil.delete('"')
+        # A whole-field ஒன்று — or ஒன்று heading a quantity phrase — reads as ஒரு.
+        rest = pynini.accep(" ") + pynini.closure(NOT_QUOTE, 1)
+        one_head = pynini.accep("ஒன்று")
+        one_as_oru = (
+            pynini.cross("ஒன்று", "ஒரு")
+            | (pynini.cross("ஒன்று", "ஒரு") + rest)
+            | pynini.difference(
+                pynini.closure(NOT_QUOTE, 1), pynini.union(one_head, one_head + rest)
+            )
         )
+        integer_part = pynutil.delete('integer_part: "') + one_as_oru + pynutil.delete('"')
 
-        fractional_part = (
-            pynutil.delete('fractional_part: "')
-            + pynini.closure(NOT_QUOTE, 1)
-            + pynutil.delete('"')
-        )
+        fractional_part = pynutil.delete('fractional_part: "') + one_as_oru + pynutil.delete('"')
 
         # Handles major denominations only
         graph_major_only = integer_part + pynini.accep(SPACE) + currency_major
@@ -108,6 +112,9 @@ class MoneyFst(GraphFst):
         graph_minor_only = pynini.union(*minor_graphs)
 
         graph = graph_major_only | graph_major_minor | pynutil.add_weight(graph_minor_only, -0.1)
+
+        optional_sign = pynini.closure(pynini.cross('negative: "true" ', "மைனஸ் "), 0, 1)
+        graph = optional_sign + graph
 
         delete_tokens = self.delete_tokens(graph)
         self.fst = delete_tokens.optimize()

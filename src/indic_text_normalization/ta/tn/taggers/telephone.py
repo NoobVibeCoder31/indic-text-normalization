@@ -22,6 +22,7 @@ from indic_text_normalization.ta.constants import (
     delete_space,
     insert_space,
 )
+from indic_text_normalization.ta.tn.taggers.cardinal import CardinalFst
 from indic_text_normalization.ta.utils import get_abs_path
 
 digit_to_word = pynini.string_file(get_abs_path("data/telephone/number.tsv"))
@@ -42,26 +43,48 @@ class TelephoneFst(GraphFst):
         044-28230000 -> telephone { number_part: "பூஜ்யம் நான்கு நான்கு இரண்டு ..." }
     """
 
-    def __init__(self, deterministic: bool = True) -> None:
+    def __init__(self, cardinal: CardinalFst | None = None, deterministic: bool = True) -> None:
         super().__init__(name="telephone", kind="classify", deterministic=deterministic)
 
         digit_word = single_digit_to_word + insert_space
         last_digit_word = single_digit_to_word
+        delete_sep = pynutil.delete(pynini.union("-", " "))
 
-        # 10-digit mobile starting 6-9, no separators.
+        # 10-digit mobile starting 6-9; a 5-5 split with space or dash is common.
         mobile = (
             (mobile_first_digit @ single_digit_to_word)
             + insert_space
-            + pynini.closure(digit_word, 8, 8)
+            + pynini.closure(digit_word, 3, 3)
+            + digit_word
+            + pynini.closure(delete_sep, 0, 1)
+            + pynini.closure(digit_word, 4, 4)
             + last_digit_word
         )
 
-        # Landline: STD code starting 0 (2-4 digits), dash, 6-8 digit subscriber number.
+        # Landline: STD code starting 0 (2-4 digits), dash, 6-8 digit subscriber
+        # number, optionally split by one internal space or dash.
         std_code = (
             (zero_digit @ single_digit_to_word) + insert_space + pynini.closure(digit_word, 1, 3)
         )
-        subscriber = pynini.closure(digit_word, 5, 7) + last_digit_word
+        subscriber = (
+            pynini.closure(digit_word, 2, 4)
+            + pynini.closure(pynutil.delete(" "), 0, 1)
+            + pynini.closure(digit_word, 2, 3)
+            + last_digit_word
+        )
         landline = std_code + pynutil.delete("-") + subscriber
+
+        # Toll-free: 1800-XXX-XXXX.
+        toll_free = (
+            pynini.cross("1", "ஒன்று")
+            + insert_space
+            + pynini.closure(digit_word, 3, 3)
+            + delete_sep
+            + pynini.closure(digit_word, 3, 3)
+            + delete_sep
+            + pynini.closure(digit_word, 3, 3)
+            + last_digit_word
+        )
 
         country_code = (
             pynutil.insert('country_code: "')
@@ -70,15 +93,28 @@ class TelephoneFst(GraphFst):
             + pynini.closure(digit_word, 0, 2)
             + last_digit_word
             + pynutil.insert('" ')
-            + pynini.closure(delete_space, 0, 1)
+            + pynini.closure(delete_space | pynutil.delete("-"), 0, 1)
         )
 
-        number_part = pynutil.insert('number_part: "') + (mobile | landline) + pynutil.insert('"')
+        number_part = (
+            pynutil.insert('number_part: "') + (mobile | landline | toll_free) + pynutil.insert('"')
+        )
 
         graph = pynini.union(
             pynutil.add_weight(country_code + number_part, 0.1),
             pynutil.add_weight(number_part, 0.1),
         )
+
+        # A standalone +NN (no number following) still reads as பிளஸ் <cardinal>.
+        if cardinal is not None:
+            standalone_cc = (
+                pynutil.insert('country_code: "')
+                + pynini.cross("+", "பிளஸ்")
+                + insert_space
+                + pynini.compose(pynini.closure(any_digit, 1, 3), cardinal.final_graph)
+                + pynutil.insert('"')
+            )
+            graph |= pynutil.add_weight(standalone_cc, 0.3)
 
         self.final = graph.optimize()
         self.fst = self.add_tokens(self.final)

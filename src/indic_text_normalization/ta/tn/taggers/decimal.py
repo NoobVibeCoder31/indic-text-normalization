@@ -120,6 +120,24 @@ class DecimalFst(GraphFst):
 
         final_graph_wo_sign = self.graph_integer + point + insert_space + self.graph_fractional
 
+        # Bare-dot decimals: .5 reads as பூஜ்யம் புள்ளி ஐந்து.
+        bare_dot = (
+            pynutil.insert('integer_part: "பூஜ்யம்"') + point + insert_space + self.graph_fractional
+        )
+        # Dotted chains (versions, IPs): every segment after the first reads
+        # digit-by-digit with புள்ளி between them.
+        dotted_chain = (
+            self.graph_integer
+            + point
+            + insert_space
+            + pynutil.insert('fractional_part: "')
+            + self.graph
+            + pynini.closure(pynini.cross(".", " புள்ளி ") + self.graph, 1)
+            + pynutil.insert('"')
+        )
+        final_graph_wo_sign |= pynutil.add_weight(bare_dot, 0.1)
+        final_graph_wo_sign |= pynutil.add_weight(dotted_chain, 0.5)
+
         self.final_graph_wo_negative = final_graph_wo_sign | get_quantity(
             final_graph_wo_sign, integer_graph
         )

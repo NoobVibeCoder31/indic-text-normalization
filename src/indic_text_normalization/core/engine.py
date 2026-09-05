@@ -30,6 +30,22 @@ logger = logging.getLogger(__name__)
 
 _SPACE_DUP = re.compile(r" {2,}")
 
+# Zero-width/format characters with no linguistic role (ZWJ/ZWNJ are preserved),
+# dash lookalikes, and exotic spaces, normalized before tagging.
+_PRE_CLEAN = str.maketrans(
+    {
+        "​": None,  # ZERO WIDTH SPACE
+        "﻿": None,  # BOM / ZERO WIDTH NO-BREAK SPACE
+        "⁠": None,  # WORD JOINER
+        "–": "-",  # EN DASH
+        "—": "-",  # EM DASH
+        "−": "-",  # MINUS SIGN
+        " ": " ",  # THIN SPACE
+        " ": " ",  # HAIR SPACE
+        " ": " ",  # NARROW NO-BREAK SPACE
+    }
+)
+
 
 class NormalizationEngine:
     """
@@ -54,7 +70,8 @@ class NormalizationEngine:
 
         Returns the input unchanged when it is empty or cannot be transduced.
         """
-        text = _SPACE_DUP.sub(" ", unicodedata.normalize("NFC", text).strip())
+        text = unicodedata.normalize("NFC", text).translate(_PRE_CLEAN)
+        text = _SPACE_DUP.sub(" ", text.strip())
         if not text:
             return text
         escaped = pynini.escape(text)

@@ -16,9 +16,11 @@ import pynini
 from pynini.lib import pynutil
 
 from indic_text_normalization.ta.constants import (
-    GraphFst,
+    CHAR,
     DIGIT,
+    SIGMA,
     TA_DIGIT,
+    GraphFst,
     insert_space,
 )
 from indic_text_normalization.ta.utils import get_abs_path
@@ -135,8 +137,7 @@ class CardinalFst(GraphFst):
         graph_160 = pynini.cross("௧௬௦", "நூற்றறுபது")
         graph_170 = pynini.cross("௧௭௦", "நூற்றெழுபது")
         graph_180 = pynini.cross("௧௮௦", "நூற்றெண்பது")
-        graph_190 = pynini.cross("௧௯௦", "நூற்றொண்ணூறு")
-        graph_150_190 = graph_150 | graph_160 | graph_170 | graph_180 | graph_190
+        graph_150_190 = graph_150 | graph_160 | graph_170 | graph_180
 
         # For 151-159, 161-169, etc.: special combined forms + digit
         # 151 = நூற்றைம்பத்தொன்று, etc.
@@ -168,16 +169,7 @@ class CardinalFst(GraphFst):
             + insert_space
             + digit
         )
-        graph_191_199 = (
-            pynutil.delete("௧")
-            + pynutil.delete("௯")
-            + pynutil.insert("நூற்றொண்ணூற்று")
-            + insert_space
-            + digit
-        )
-        graph_151_199_special = (
-            graph_151_159 | graph_161_169 | graph_171_179 | graph_181_189 | graph_191_199
-        )
+        graph_151_199_special = graph_151_159 | graph_161_169 | graph_171_179 | graph_181_189
 
         # Combine all 100-199 patterns
         # Order matters: special cases first (they're more specific)
@@ -339,95 +331,14 @@ class CardinalFst(GraphFst):
             arabic_digit_input, arabic_to_tamil_number @ tamil_final_graph
         ).optimize()
 
-        # Strict international comma handling:
-        #   X,YYY -> X ஆயிரம் YYY
-        #   X,YYY,ZZZ -> X மில்லியன் YYY ஆயிரம் ZZZ
-        #   X,YYY,ZZZ,WWW -> X பில்லியன் YYY மில்லியன் ZZZ ஆயிரம் WWW
-        #   X,YYY,ZZZ,WWW,VVV -> X டிரில்லியன் YYY பில்லியன் ZZZ மில்லியன் WWW ஆயிரம் VVV
-        ta_1_3 = pynini.closure(TA_DIGIT, 1, 3)
-        ar_1_3 = pynini.closure(DIGIT, 1, 3)
-        ta_3 = TA_DIGIT + TA_DIGIT + TA_DIGIT
-        ar_3 = DIGIT + DIGIT + DIGIT
-        ta_3_nonzero = pynini.difference(ta_3, pynini.accep("௦௦௦")).optimize()
-        ar_3_nonzero = pynini.difference(ar_3, pynini.accep("000")).optimize()
-
-        up_to_999 = (graph_all_hundreds | teens_and_ties | digit | zero).optimize()
-        leading_zero_strip = pynini.closure(pynutil.delete("௦"), 0, 2)
-
-        group_1_3 = (
-            pynini.compose(ta_1_3, tamil_final_graph)
-            | pynini.compose(ar_1_3, arabic_to_tamil_number @ tamil_final_graph)
+        # Any 3-digit international grouping (1,000 / 1,000,000) is read in the
+        # Indian idiom after dropping the commas: 1,000,000 -> பத்து இலட்சம்.
+        intl_comma_pattern = (
+            pynini.closure(any_digit, 1, 3) + pynini.closure(comma + three_digits, 1)
         ).optimize()
-        group_3 = (
-            pynini.compose(ta_3, leading_zero_strip + up_to_999)
-            | pynini.compose(ar_3, arabic_to_tamil_number @ (leading_zero_strip + up_to_999))
-        ).optimize()
-        group_3_nonzero = (
-            pynini.compose(ta_3_nonzero, leading_zero_strip + up_to_999)
-            | pynini.compose(
-                ar_3_nonzero, arabic_to_tamil_number @ (leading_zero_strip + up_to_999)
-            )
-        ).optimize()
-
-        delete_comma = pynutil.delete(",")
-        intl_thousand = (group_1_3 + delete_comma + pynutil.insert(" ஆயிரம் ") + group_3).optimize()
-        intl_thousand_zero_tail = (
-            group_1_3
-            + delete_comma
-            + pynutil.insert(" ஆயிரம்")
-            + pynutil.delete(pynini.union("௦௦௦", "000"))
-        ).optimize()
-        intl_million = (
-            group_1_3
-            + delete_comma
-            + pynutil.insert(" மில்லியன் ")
-            + group_3_nonzero
-            + delete_comma
-            + pynutil.insert(" ஆயிரம் ")
-            + group_3
-        ).optimize()
-        intl_million_zero_thousand = (
-            group_1_3
-            + delete_comma
-            + pynutil.insert(" மில்லியன் ")
-            + pynutil.delete(pynini.union("௦௦௦", "000"))
-            + delete_comma
-            + group_3
-        ).optimize()
-        intl_billion = (
-            group_1_3
-            + delete_comma
-            + pynutil.insert(" பில்லியன் ")
-            + group_3_nonzero
-            + delete_comma
-            + pynutil.insert(" மில்லியன் ")
-            + group_3_nonzero
-            + delete_comma
-            + pynutil.insert(" ஆயிரம் ")
-            + group_3
-        ).optimize()
-        intl_trillion = (
-            group_1_3
-            + delete_comma
-            + pynutil.insert(" டிரில்லியன் ")
-            + group_3_nonzero
-            + delete_comma
-            + pynutil.insert(" பில்லியன் ")
-            + group_3_nonzero
-            + delete_comma
-            + pynutil.insert(" மில்லியன் ")
-            + group_3_nonzero
-            + delete_comma
-            + pynutil.insert(" ஆயிரம் ")
-            + group_3
-        ).optimize()
-        strict_intl_with_commas = (
-            pynutil.add_weight(intl_million_zero_thousand, -0.1)
-            | pynutil.add_weight(intl_thousand_zero_tail, -0.1)
-            | intl_trillion
-            | intl_billion
-            | intl_million
-            | intl_thousand
+        intl_as_indian = (
+            pynini.compose(intl_comma_pattern, delete_commas)
+            @ (tamil_final_graph | (arabic_to_tamil_number @ tamil_final_graph))
         ).optimize()
 
         # Indian comma/default handling.
@@ -435,7 +346,7 @@ class CardinalFst(GraphFst):
             pynini.compose(indian_comma_pattern, delete_commas) @ tamil_final_graph
         ).optimize()
         tamil_final_with_commas = (
-            pynutil.add_weight(strict_intl_with_commas, -0.1)
+            pynutil.add_weight(intl_as_indian, -0.1)
             | pynutil.add_weight(tamil_with_commas, -0.1)
             | tamil_final_graph
         )
@@ -447,7 +358,7 @@ class CardinalFst(GraphFst):
             @ tamil_final_graph
         ).optimize()
         arabic_final_with_commas = (
-            pynutil.add_weight(strict_intl_with_commas, -0.1)
+            pynutil.add_weight(intl_as_indian, -0.1)
             | pynutil.add_weight(arabic_with_commas, -0.1)
             | arabic_final_graph
         )
@@ -455,16 +366,114 @@ class CardinalFst(GraphFst):
         # Combine both Tamil and Arabic digit paths (both with comma support)
         final_graph = tamil_final_with_commas | arabic_final_with_commas
 
+        # Sandhi: after a stem ending ற்று, a ப/த-initial word doubles its
+        # consonant and joins, e.g. நூற்று பத்து -> நூற்றுப்பத்து (110).
+        sandhi = pynini.cdrewrite(
+            pynini.union(pynini.cross(" ப", "ப்ப"), pynini.cross(" த", "த்த")),
+            "ற்று",
+            "",
+            SIGMA,
+        )
+
+        # Scale-word style: exactly one thousand is bare ஆயிரம்; a counting
+        # prefix before a scale word is ஒரு, not ஒன்று (ஒரு இலட்சம், ஒரு கோடி).
+        drop_one_exact = pynini.cdrewrite(
+            pynini.cross("ஒன்று ஆயிரம்", "ஆயிரம்"), "[BOS]", "[EOS]", SIGMA
+        )
+        drop_one_rest = pynini.cdrewrite(
+            pynini.cross("ஒன்று ஆயிரம்", "ஆயிரத்து"), "[BOS]", " ", SIGMA
+        )
+        oru_scales = pynini.cdrewrite(
+            pynini.cross("ஒன்று ", "ஒரு "),
+            "[BOS]",
+            pynini.union("இலட்சம்", "கோடி"),
+            SIGMA,
+        )
+
+        # Thousands fuse with their digit: இரண்டு ஆயிரம் -> இரண்டாயிரம், and with a
+        # remainder இரண்டாயிரத்து (2024 -> இரண்டாயிரத்து இருபத்துநான்கு).
+        word_boundary = pynini.union("[BOS]", " ")
+        fuse_exact = SIGMA
+        fuse_rest = SIGMA
+        for d in ["இரண்டு", "மூன்று", "நான்கு", "ஐந்து", "ஆறு", "ஏழு", "எட்டு", "ஒன்பது"]:
+            stem = d[:-1] + "ா"
+            fuse_exact @= pynini.cdrewrite(
+                pynini.cross(f"{d} ஆயிரம்", f"{stem}யிரம்"), word_boundary, "[EOS]", SIGMA
+            )
+            fuse_rest @= pynini.cdrewrite(
+                pynini.cross(f"{d} ஆயிரம்", f"{stem}யிரத்து"), word_boundary, " ", SIGMA
+            )
+
+        style = (
+            sandhi @ drop_one_exact @ drop_one_rest @ oru_scales @ fuse_exact @ fuse_rest
+        ).optimize()
+
+        # Normalize spacing inside the graph itself (some sub-graphs insert a
+        # leading space), so inversion for ITN sees the same strings TN emits.
+        squeeze = pynini.cdrewrite(pynini.cross(pynini.closure(" ", 2), " "), "", "", SIGMA)
+        strip_leading = pynini.cdrewrite(pynutil.delete(pynini.closure(" ", 1)), "[BOS]", "", SIGMA)
+        final_graph = (final_graph @ squeeze @ strip_leading).optimize()
+
+        # ITN accepts both the styled forms and the plain spaced forms.
+        raw_final_graph = final_graph
+        final_graph = (final_graph @ style).optimize()
+        self.itn_input_graph = pynini.union(raw_final_graph, final_graph).optimize()
+
         # Handle negative numbers
         optional_minus_graph = pynini.closure(
             pynutil.insert("negative: ") + pynini.cross("-", '"true" '), 0, 1
         )
 
         self.final_graph = final_graph
+
+        # Digit-by-digit fallback for shapes the number grammar rejects, e.g.
+        # leading-zero runs (007) and digit strings beyond the crore range.
+        digit_word = pynini.union(digit, zero)
+        digit_by_digit = (
+            (digit_word | (arabic_to_tamil_digit @ digit_word))
+            + pynini.closure(insert_space + (digit_word | (arabic_to_tamil_digit @ digit_word)), 1)
+        ).optimize()
+        self.digit_by_digit = digit_by_digit
+
+        # Case-suffixed numbers, e.g. 2024ல் -> ...இருபத்துநான்கில். The locative
+        # -இல் replaces the final -உ; ம்-final scale words take -த்தில்.
+        locative_ending = pynini.union(pynini.cross("ு", "ில்"), pynini.cross("ம்", "த்தில்"))
+        suffixed_locative = (final_graph @ (SIGMA + locative_ending)) + pynutil.delete(
+            pynini.union("ல்", "இல்")
+        )
+        # Oblique த்தில் written out (1000த்தில் -> ஆயிரத்தில்).
+        suffixed_oblique = (final_graph @ (SIGMA + pynini.cross("ம்", "த்தில்"))) + pynutil.delete(
+            "த்தில்"
+        )
+        # Dative க்கு/க்குள் and plural கள்/களில் attach to the number word;
+        # ம்-final scale words take -த்து before the dative (இலட்சத்துக்கு).
+        dative = pynini.union(pynini.accep("க்கு"), pynini.accep("க்குள்"))
+        not_m_final = pynini.closure(CHAR) + pynini.difference(CHAR, pynini.accep("்"))
+        suffixed_attach = (final_graph @ not_m_final) + dative
+        suffixed_attach |= (final_graph @ (SIGMA + pynini.cross("ம்", "த்து"))) + dative
+        suffixed_attach |= final_graph + pynini.union(pynini.accep("கள்"), pynini.accep("களில்"))
+        # Inclusive உம்: பத்து + உம் -> பத்தும்; இலட்சம் + உம் -> இலட்சமும்.
+        suffixed_attach |= (final_graph @ (SIGMA + pynini.accep("ு"))) + pynini.cross("உம்", "ம்")
+        suffixed_attach |= (final_graph @ (SIGMA + pynini.cross("ம்", "மு"))) + pynini.cross(
+            "உம்", "ம்"
+        )
+        # Adverbial ஆக: 5ஆக -> ஐந்தாக.
+        aa_stem = final_graph @ (
+            SIGMA + pynini.union(pynini.cross("ு", "ா"), pynini.cross("ம்", "மா"))
+        )
+        suffixed_attach |= aa_stem + pynutil.delete("ஆ") + pynini.accep("க")
+
+        tagged_integer = (
+            self.final_graph
+            | pynutil.add_weight(suffixed_locative, 0.1)
+            | pynutil.add_weight(suffixed_oblique, 0.1)
+            | pynutil.add_weight(suffixed_attach, 0.1)
+            | pynutil.add_weight(digit_by_digit, 20.0)
+        )
         final_graph = (
             optional_minus_graph
             + pynutil.insert('integer: "')
-            + self.final_graph
+            + tagged_integer
             + pynutil.insert('"')
         )
         final_graph = self.add_tokens(final_graph)

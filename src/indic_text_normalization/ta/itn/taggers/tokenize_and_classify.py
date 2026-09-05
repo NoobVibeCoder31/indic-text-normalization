@@ -6,7 +6,9 @@ import pynini
 from pynini.lib import pynutil
 
 from indic_text_normalization.ta.constants import (
+    DIGIT,
     SPACE,
+    TA_DIGIT,
     WHITE_SPACE,
     GraphFst,
     delete_extra_space,
@@ -44,8 +46,20 @@ class ClassifyFst(GraphFst):
         telephone = TelephoneFst(deterministic=deterministic)
         punctuation = PunctuationFst(deterministic=deterministic)
 
+        # Already-written numbers (ITN output re-fed) pass through untouched.
+        digits_passthrough = (
+            pynini.closure(pynini.accep("-"), 0, 1)
+            + pynini.closure(pynini.union(*"₹$£€¥₩"), 0, 1)
+            + pynini.closure(pynini.union(DIGIT, TA_DIGIT), 1)
+            + pynini.closure(
+                pynini.union(*".:,/") + pynini.closure(pynini.union(DIGIT, TA_DIGIT), 1)
+            )
+        )
+        digits_token = pynutil.insert('name: "') + digits_passthrough + pynutil.insert('"')
+
         classify = (
-            pynutil.add_weight(telephone.fst, 0.9)
+            pynutil.add_weight(digits_token, 0.8)
+            | pynutil.add_weight(telephone.fst, 0.9)
             | pynutil.add_weight(date.fst, 1.04)
             | pynutil.add_weight(time.fst, 1.05)
             | pynutil.add_weight(fraction.fst, 1.06)

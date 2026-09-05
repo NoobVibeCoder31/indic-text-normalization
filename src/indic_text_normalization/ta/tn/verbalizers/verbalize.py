@@ -17,8 +17,10 @@ from indic_text_normalization.ta.tn.verbalizers.cardinal import CardinalFst
 from indic_text_normalization.ta.tn.verbalizers.date import DateFst
 from indic_text_normalization.ta.tn.verbalizers.decimal import DecimalFst
 from indic_text_normalization.ta.tn.verbalizers.fraction import FractionFst
+from indic_text_normalization.ta.tn.verbalizers.measure import MeasureFst
 from indic_text_normalization.ta.tn.verbalizers.money import MoneyFst
 from indic_text_normalization.ta.tn.verbalizers.ordinal import OrdinalFst
+from indic_text_normalization.ta.tn.verbalizers.range import RangeFst
 from indic_text_normalization.ta.tn.verbalizers.telephone import TelephoneFst
 from indic_text_normalization.ta.tn.verbalizers.time import TimeFst
 from indic_text_normalization.ta.tn.verbalizers.whitelist import WhiteListFst
@@ -37,6 +39,8 @@ class VerbalizeFst(GraphFst):
         time = TimeFst()
         date = DateFst(deterministic=deterministic)
         money = MoneyFst()
+        measure = MeasureFst(deterministic=deterministic)
+        number_range = RangeFst(deterministic=deterministic)
         fraction = FractionFst(deterministic=deterministic)
         ordinal = OrdinalFst(deterministic=deterministic)
         telephone = TelephoneFst(deterministic=deterministic)
@@ -48,6 +52,8 @@ class VerbalizeFst(GraphFst):
             | time.fst
             | date.fst
             | money.fst
+            | measure.fst
+            | number_range.fst
             | fraction.fst
             | ordinal.fst
             | telephone.fst

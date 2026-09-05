@@ -15,7 +15,7 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.ta.constants import GraphFst, insert_space
+from indic_text_normalization.ta.constants import DIGIT, TA_DIGIT, GraphFst, insert_space
 from indic_text_normalization.ta.tn.taggers.cardinal import CardinalFst
 from indic_text_normalization.ta.utils import get_abs_path
 
@@ -50,14 +50,30 @@ class MoneyFst(GraphFst):
         )
         currency_major = pynutil.insert('currency_maj: "') + currency_graph + pynutil.insert('"')
         optional_space = pynini.closure(pynini.accep(" "), 0, 1)
+        range_amount = cardinal_graph + pynini.cross("-", " முதல் ") + cardinal_graph
         integer = (
             pynutil.insert('integer_part: "')
-            + (pynutil.add_weight(cardinal_with_commas, -0.1) | cardinal_graph)
+            + (
+                pynutil.add_weight(cardinal_with_commas, -0.1)
+                | cardinal_graph
+                | pynutil.add_weight(range_amount, -0.05)
+            )
             + pynutil.insert('"')
         )
+        # ₹50.5 means 50 paise: a lone fractional digit is scaled by ten before lookup.
+        one_digit_padded = pynini.union(
+            DIGIT + pynutil.insert("0"), TA_DIGIT + pynutil.insert("\u0be6")
+        )
+        # .05 is five paise: a leading zero in the minor unit is dropped.
+        zero_lead = pynini.union(pynutil.delete("0") + DIGIT, pynutil.delete("\u0be6") + TA_DIGIT)
+        two_digits = pynini.union(
+            pynini.difference(DIGIT, "0") + DIGIT,
+            pynini.difference(TA_DIGIT, "\u0be6") + TA_DIGIT,
+        )
+        fraction_digits = pynini.union(one_digit_padded, zero_lead, two_digits).optimize()
         fraction = (
             pynutil.insert('fractional_part: "')
-            + (pynutil.add_weight(cardinal_with_commas, -0.1) | cardinal_graph)
+            + (fraction_digits @ cardinal_graph)
             + pynutil.insert('"')
         )
         currency_minor = (
@@ -116,9 +132,89 @@ class MoneyFst(GraphFst):
             + optional_slash_dash
         )
 
+        # ₹5 கோடி style: the amount carries an Indian quantity word, and the
+        # currency reads after it (ஐந்து கோடி ரூபாய்).
+        quantity_word = pynini.union(
+            "கோடி", "இலட்சம்", "லட்சம்", "ஆயிரம்", "மில்லியன்", "பில்லியன்", "டிரில்லியன்"
+        )
+        single_frac_digit = pynini.union(DIGIT, TA_DIGIT) @ cardinal_graph
+        amount_with_point = cardinal_graph + pynini.closure(
+            pynini.cross(".", " புள்ளி ") + (cardinal.digit_by_digit | single_frac_digit), 0, 1
+        )
+        # ₹5-10 கோடி reads as a range amount.
+        amount_with_point |= amount_with_point + pynini.cross("-", " முதல் ") + amount_with_point
+        graph_quantity = (
+            optional_graph_negative
+            + currency_major
+            + optional_space
+            + insert_space
+            + pynutil.insert('integer_part: "')
+            + amount_with_point
+            + pynini.accep(" ")
+            + quantity_word
+            + pynutil.insert('"')
+            + optional_slash_dash
+        )
+
+        # A trailing .00 minor part is silent (₹1,999.00 -> ...ரூபாய்).
+        delete_zero_frac = pynutil.delete(pynini.union(".00", ".௦௦"))
+        graph_zero_frac = (
+            optional_graph_negative
+            + currency_major
+            + optional_space
+            + insert_space
+            + integer
+            + delete_zero_frac
+            + optional_slash_dash
+        )
+
+        # ₹.50 reads as paise only (symbol currencies only: Rs./ரூ. own the dot).
+        symbol_currency = pynini.compose(pynini.union("₹", "$", "£", "€", "¥", "₩"), currency_graph)
+        currency_symbol_major = (
+            pynutil.insert('currency_maj: "') + symbol_currency + pynutil.insert('"')
+        )
+        graph_bare_paise = (
+            currency_symbol_major
+            + optional_space
+            + insert_space
+            + pynutil.insert('integer_part: "பூஜ்யம்"')
+            + pynini.cross(".", " ")
+            + fraction
+            + insert_space
+            + currency_minor
+        )
+
+        # ₹-500: the sign may follow the symbol.
+        negative_after_currency = (
+            currency_major
+            + optional_space
+            + pynutil.insert(" negative: ")
+            + pynini.cross("-", '"true"')
+            + optional_space
+            + insert_space
+            + integer
+            + optional_slash_dash
+        )
+
+        # ₹150க்கு: the dative attaches to the currency word (ரூபாய்க்கு).
+        currency_major_kku = (
+            pynutil.insert('currency_maj: "')
+            + currency_graph
+            + pynutil.insert("க்கு")
+            + pynutil.insert('"')
+        )
+        graph_major_kku = (
+            currency_major_kku + optional_space + insert_space + integer + pynutil.delete("க்கு")
+        )
+
         graph_currencies = (
-            graph_major_only
+            pynutil.add_weight(graph_major_kku, -0.1)
+            | graph_major_only
             | graph_major_and_minor
+            | pynutil.add_weight(graph_quantity, -0.2)
+            | pynutil.add_weight(graph_zero_frac, -0.1)
+            | pynutil.add_weight(graph_bare_paise, -0.1)
+            | pynutil.add_weight(negative_after_currency, 0.1)
             | pynutil.add_weight(graph_major_only_suffix | graph_major_and_minor_suffix, 0.5)
         )
 

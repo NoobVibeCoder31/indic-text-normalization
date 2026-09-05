@@ -14,10 +14,11 @@ column, so provenance is recorded here per table.
 | `numbers/hundreds_combined.tsv` | ௨-௮ → இருநூற்று … எண்ணூற்று | Rewritten here: joined sandhi stems replace Kenpath's bare prefixes (முன்/நான்/…), which produced wrong forms like "நான் நூற்று" |
 | `numbers/thousands.tsv` | thousands forms | Kenpath |
 | `numbers/itn_variants.tsv` | spaced spoken forms 0-99 → ASCII digits | Adapted from indic-num2words (`NUM_DICT["ta"]`); accepted as ITN input only |
+| `numbers/itn_half_forms.tsv` | fused fractional words → integer/fraction digits (ஒன்றரை → 1.5) | Written here; 3 columns (word, integer part, fractional part), ITN input only |
 | `ordinal/*.tsv` | ordinal suffixes and exceptions | Kenpath; the tagger now derives ஐந்தாவது-style stems morphologically |
 | `date/{days,months,year_suffix}.tsv` | day/month numerals → words | Kenpath |
 | `time/{hours,minutes,seconds}.tsv` | 0-59 → words | Kenpath |
-| `money/currency.tsv` | symbol/code → currency word | Kenpath |
+| `money/currency.tsv` | symbol/code → currency word | Kenpath; ரூ./ரூ rows added here |
 | `money/major_minor_currencies.tsv` | major → minor unit word | Kenpath |
 | `money/currency_itn.tsv` | currency word → canonical symbol | Written here for ITN |
 | `fraction/denominator_il.tsv` | locative -இல் form → cardinal word | Written here; regular locative morphology |

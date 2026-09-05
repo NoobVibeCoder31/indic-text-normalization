@@ -50,6 +50,9 @@ from indic_text_normalization.core.graph_utils import (
     WHITE_SPACE as WHITE_SPACE,
 )
 from indic_text_normalization.core.graph_utils import (
+    TO_LOWER as TO_LOWER,
+)
+from indic_text_normalization.core.graph_utils import (
     GraphFst as GraphFst,
 )
 from indic_text_normalization.core.graph_utils import (

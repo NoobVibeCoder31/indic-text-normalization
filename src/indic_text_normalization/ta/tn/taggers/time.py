@@ -73,7 +73,7 @@ class TimeFst(GraphFst):
 
         # The verbalizer inserts மணி itself, so a trailing written மணிக்கு is absorbed here.
         optional_manikku = pynini.closure(
-            pynini.closure(SPACE, 0, 1) + pynutil.delete("மணிக்கு"), 0, 1
+            pynini.closure(SPACE, 0, 1) + pynutil.delete(pynini.union("மணிக்கு", "க்கு")), 0, 1
         ).optimize()
 
         graph_hms = (
@@ -86,16 +86,45 @@ class TimeFst(GraphFst):
             + self.seconds
             + optional_manikku
         )
-        graph_hm = self.hours + delete_colon + insert_space + self.minutes + optional_manikku
-        graph_h = (
+        delete_zero_seconds = pynini.closure(pynutil.delete(pynini.union(":00", ":௦௦")), 0, 1)
+        graph_hm = (
             self.hours
             + delete_colon
-            + (pynutil.delete("௦௦") | pynutil.delete("00"))
+            + insert_space
+            + self.minutes
+            + delete_zero_seconds
+            + optional_manikku
+        )
+        delete_zero_minutes = delete_colon + (pynutil.delete("௦௦") | pynutil.delete("00"))
+        graph_h = self.hours + delete_zero_minutes + delete_zero_seconds + optional_manikku
+        # 10:00:30 keeps only the seconds: பத்து மணி முப்பது வினாடி.
+        graph_h_s = (
+            self.hours
+            + delete_zero_minutes
+            + delete_colon
+            + insert_space
+            + self.seconds
             + optional_manikku
         )
 
-        final_graph = (
-            graph_hms | pynutil.add_weight(graph_hm, 1.0) | pynutil.add_weight(graph_h, 0.8)
+        # Trailing AM/PM becomes a meridiem word the verbalizer fronts.
+        meridiem = pynini.closure(
+            pynutil.delete(pynini.closure(" ", 0, 1))
+            + pynutil.insert(' meridiem: "')
+            + (
+                pynini.cross(pynini.union("AM", "am", "A.M.", "a.m."), "முற்பகல்")
+                | pynini.cross(pynini.union("PM", "pm", "P.M.", "p.m."), "பிற்பகல்")
+            )
+            + pynutil.insert('"'),
+            0,
+            1,
         )
+
+        final_graph = (
+            graph_hms
+            | pynutil.add_weight(graph_hm, 1.0)
+            | pynutil.add_weight(graph_h_s, 1.0)
+            | pynutil.add_weight(graph_h, 0.8)
+        ) + meridiem
 
         self.fst = self.add_tokens(final_graph).optimize()

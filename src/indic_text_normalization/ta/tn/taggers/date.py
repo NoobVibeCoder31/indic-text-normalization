@@ -16,6 +16,7 @@ import pynini
 from pynini.lib import pynutil
 
 from indic_text_normalization.ta.constants import (
+    CHAR,
     DIGIT,
     TA_DIGIT,
     GraphFst,
@@ -66,25 +67,26 @@ class DateFst(GraphFst):
 
         # Support both Tamil and Arabic digits for days
         # Tamil digits path: Tamil digits -> days mapping
-        tamil_day_input = pynini.closure(TA_DIGIT, 1, 2)
+        pad_zero = pynutil.insert("\u0be6")
+        tamil_day_input = (TA_DIGIT + TA_DIGIT) | (pad_zero + TA_DIGIT)
         tamil_days_graph = pynini.compose(tamil_day_input, days).optimize()
 
         # Arabic digits path: Arabic digits -> convert to Tamil -> days mapping
-        arabic_day_input = pynini.closure(DIGIT, 1, 2)
-        arabic_days_graph = pynini.compose(
-            arabic_day_input, arabic_to_tamil_number @ days
-        ).optimize()
+        arabic_day_input = pynini.compose(DIGIT + DIGIT, arabic_to_tamil_number) | (
+            pad_zero + pynini.compose(DIGIT, arabic_to_tamil_number)
+        )
+        arabic_days_graph = pynini.compose(arabic_day_input, days).optimize()
 
         days_graph = tamil_days_graph | arabic_days_graph
 
         # Support both Tamil and Arabic digits for months
-        tamil_month_input = pynini.closure(TA_DIGIT, 1, 2)
+        tamil_month_input = (TA_DIGIT + TA_DIGIT) | (pad_zero + TA_DIGIT)
         tamil_months_graph = pynini.compose(tamil_month_input, months).optimize()
 
-        arabic_month_input = pynini.closure(DIGIT, 1, 2)
-        arabic_months_graph = pynini.compose(
-            arabic_month_input, arabic_to_tamil_number @ months
-        ).optimize()
+        arabic_month_input = pynini.compose(DIGIT + DIGIT, arabic_to_tamil_number) | (
+            pad_zero + pynini.compose(DIGIT, arabic_to_tamil_number)
+        )
+        arabic_months_graph = pynini.compose(arabic_month_input, months).optimize()
 
         months_graph = tamil_months_graph | arabic_months_graph
 
@@ -99,17 +101,6 @@ class DateFst(GraphFst):
 
         year_graph = tamil_year_graph | arabic_year_graph
 
-        # Also support 2-digit years
-        tamil_year_2digit_input = TA_DIGIT + TA_DIGIT
-        tamil_year_2digit_graph = pynini.compose(tamil_year_2digit_input, cardinal_graph).optimize()
-
-        arabic_year_2digit_input = DIGIT + DIGIT
-        arabic_year_2digit_graph = pynini.compose(
-            arabic_year_2digit_input, arabic_to_tamil_number @ cardinal_graph
-        ).optimize()
-
-        year_2digit_graph = tamil_year_2digit_graph | arabic_year_2digit_graph
-
         # Separators
         delete_dash = pynutil.delete("-")
         delete_slash = pynutil.delete("/")
@@ -119,8 +110,16 @@ class DateFst(GraphFst):
         # Build date components with labels
         day_component = pynutil.insert('day: "') + days_graph + pynutil.insert('"')
         month_component = pynutil.insert('month: "') + months_graph + pynutil.insert('"')
+        # 2-digit years are rejected: 15-06-24 is too ambiguous with number ranges.
+        # A case suffix on the date lands on the year: 2024ல் -> ...நான்கில்.
+        year_locative = (
+            year_graph @ (pynini.closure(CHAR) + pynini.cross("ு", "ில்"))
+        ) + pynutil.delete(pynini.union("ல்", "இல்"))
+        year_dative = year_graph + pynini.accep("க்கு")
         year_component = (
-            pynutil.insert('year: "') + (year_graph | year_2digit_graph) + pynutil.insert('"')
+            pynutil.insert('year: "')
+            + (year_graph | year_locative | year_dative)
+            + pynutil.insert('"')
         )
 
         # DD-MM-YYYY format (common in India)
@@ -157,28 +156,15 @@ class DateFst(GraphFst):
             + day_component
         )
 
-        # DD-MM format (without year)
-        graph_dd_mm = day_component + insert_space + delete_separator + month_component
-
-        # MM-DD format (without year)
-        graph_mm_dd = (
-            month_component
-            + insert_space
-            + delete_separator
-            + day_component
-            + pynutil.insert(" preserve_order: true")
-        )
-
         # Year suffix (A.D., B.C., etc.)
         era_graph = pynutil.insert('era: "') + year_suffix + pynutil.insert('"')
 
-        # Combine all date formats with weights
+        # Numeric dates require all three components with a 4-digit year; bare
+        # MM-DD / MM-YY shapes are dropped so ranges like 10-20 stay cardinals.
         final_graph = (
             pynutil.add_weight(graph_dd_mm_yyyy, -0.001)  # Prefer DD-MM-YYYY
             | pynutil.add_weight(graph_yyyy_mm_dd, -0.001)  # ISO format
             | graph_mm_dd_yyyy
-            | pynutil.add_weight(graph_dd_mm, -0.002)
-            | graph_mm_dd
             | pynutil.add_weight(era_graph, -0.001)
         )
 

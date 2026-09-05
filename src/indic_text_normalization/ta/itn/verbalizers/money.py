@@ -5,7 +5,12 @@ ITN verbalizer emitting written money amounts.
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.ta.constants import NOT_QUOTE, GraphFst, delete_space
+from indic_text_normalization.ta.constants import (
+    NOT_QUOTE,
+    GraphFst,
+    delete_preserve_order,
+    delete_space,
+)
 
 
 class MoneyFst(GraphFst):
@@ -29,10 +34,13 @@ class MoneyFst(GraphFst):
             + pynutil.delete('"')
         )
 
+        optional_sign = pynini.closure(pynini.cross('negative: "true"', "-") + delete_space, 0, 1)
         self.graph = (
-            currency
+            optional_sign
+            + currency
             + delete_space
             + integer
             + pynini.closure(delete_space + pynutil.insert(".") + fraction, 0, 1)
+            + delete_preserve_order
         )
         self.fst = self.delete_tokens(self.graph).optimize()
