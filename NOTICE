@@ -1,0 +1,19 @@
+indic-text-normalization
+Copyright (c) 2026 veera.puthiran
+
+This project is licensed under the MIT License (see LICENSE).
+
+Portions of this software are adapted from the following Apache-2.0 licensed
+projects. Files containing adapted code retain their original Apache-2.0
+license headers.
+
+1. NVIDIA NeMo-text-processing
+   https://github.com/NVIDIA/NeMo-text-processing
+   Copyright (c) NVIDIA CORPORATION. Licensed under the Apache License 2.0.
+   Adapted: GraphFst base class, token parser, normalization pipeline,
+   inverse text normalization grammar structure.
+
+2. Kenpath indic-text-normalization
+   https://github.com/Kenpath/indic-text-normalization
+   Copyright (c) Kenpath Technologies. Licensed under the Apache License 2.0.
+   Adapted: Tamil text normalization grammars and mapping tables.

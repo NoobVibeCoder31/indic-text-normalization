@@ -1,0 +1,471 @@
+# Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import pynini
+from pynini.lib import pynutil
+
+from indic_text_normalization.ta.constants import (
+    GraphFst,
+    DIGIT,
+    TA_DIGIT,
+    insert_space,
+)
+from indic_text_normalization.ta.utils import get_abs_path
+
+# Convert Arabic digits (0-9) to Tamil digits (௦-௯)
+arabic_to_tamil_digit = pynini.string_map(
+    [
+        ("0", "௦"),
+        ("1", "௧"),
+        ("2", "௨"),
+        ("3", "௩"),
+        ("4", "௪"),
+        ("5", "௫"),
+        ("6", "௬"),
+        ("7", "௭"),
+        ("8", "௮"),
+        ("9", "௯"),
+    ]
+).optimize()
+arabic_to_tamil_number = pynini.closure(arabic_to_tamil_digit).optimize()
+
+# Create a graph that deletes commas from digit sequences
+# This handles Indian number format where commas are separators (e.g., 1,000,001 or ௧,௦௦௦,௦௦௧)
+any_digit = pynini.union(DIGIT, TA_DIGIT)
+delete_commas = (
+    any_digit + pynini.closure(pynini.closure(pynutil.delete(","), 0, 1) + any_digit)
+).optimize()
+
+# Indian comma format pattern (e.g. 12,34,567)
+comma = pynini.accep(",")
+three_digits = any_digit + any_digit + any_digit
+indian_comma_pattern = (
+    pynini.closure(any_digit, 1, 2)
+    + pynini.closure(comma + any_digit + any_digit, 1)
+    + pynini.closure(comma + three_digits, 0, 1)
+).optimize()
+
+
+class CardinalFst(GraphFst):
+    """
+    Finite state transducer for classifying Tamil cardinals, e.g.
+        -௨௩ -> cardinal { negative: "true"  integer: "இருபத்துமூன்று" }
+
+    Args:
+        deterministic: if True will provide a single transduction option,
+            for False multiple transduction are generated (used for audio-based normalization)
+    """
+
+    def __init__(self, deterministic: bool = True):
+        super().__init__(name="cardinal", kind="classify", deterministic=deterministic)
+
+        # Load Tamil number mappings efficiently
+        digit = pynini.string_file(get_abs_path("data/numbers/digit.tsv")).optimize()
+        zero = pynini.string_file(get_abs_path("data/numbers/zero.tsv")).optimize()
+        teens_ties = pynini.string_file(get_abs_path("data/numbers/teens_and_ties.tsv")).optimize()
+        teens_and_ties = pynutil.add_weight(teens_ties, -0.1)
+
+        # Load special hundred forms (200-900 combined forms)
+        hundreds_combined = pynini.string_file(
+            get_abs_path("data/numbers/hundreds_combined.tsv")
+        ).optimize()
+        hundred_exact = pynini.string_file(get_abs_path("data/numbers/hundred.tsv")).optimize()
+
+        self.digit = digit
+        self.zero = zero
+        self.teens_and_ties = teens_and_ties
+
+        # Helper function to create graphs with zero padding efficiently
+        def create_graph_suffix(
+            digit_graph: pynini.Fst, suffix: pynini.Fst, zeros_counts: int
+        ) -> pynini.Fst:
+            """Create graph with suffix and zero padding"""
+            zero_delete = pynutil.add_weight(pynutil.delete("௦"), -0.1)
+            if zeros_counts == 0:
+                return digit_graph + suffix
+            return digit_graph + (zero_delete**zeros_counts) + suffix
+
+        def create_larger_number_graph(
+            digit_graph: pynini.Fst,
+            suffix: pynini.Fst,
+            zeros_counts: int,
+            sub_graph: pynini.Fst,
+        ) -> pynini.Fst:
+            """Create graph for larger numbers with sub-components"""
+            zero_delete = pynutil.add_weight(pynutil.delete("௦"), -0.1)
+            if zeros_counts == 0:
+                return digit_graph + suffix + insert_space + sub_graph
+            return digit_graph + suffix + (zero_delete**zeros_counts) + insert_space + sub_graph
+
+        # Special case: exactly 100 = நூறு
+        graph_hundred_exact = hundred_exact
+
+        # For 101-109: நூற்று + digit (e.g., 101 = நூற்றொன்று)
+        # Pattern: 1 + 0 + digit -> நூற்று + digit
+        graph_101_109 = (
+            pynutil.delete("௧")
+            + pynutil.delete("௦")
+            + pynutil.insert(" நூற்று")
+            + insert_space
+            + digit
+        )
+
+        # For 110-199: நூற்று + tens/teens
+        # Pattern: 1 + (10-99) -> நூற்று + tens/teens
+        # Note: Special cases 150, 160, 170, 180, 190 are handled separately below
+        # They will have priority in the union, so this general pattern won't conflict
+        graph_110_199_general = (
+            pynutil.delete("௧") + pynutil.insert(" நூற்று") + insert_space + teens_ties
+        )
+
+        # Special cases for 150, 160, 170, 180, 190: combined forms
+        # 150 = நூற்றைம்பது, 160 = நூற்றறுபது, 170 = நூற்றெழுபது, 180 = நூற்றெண்பது, 190 = நூற்றொண்ணூறு
+        graph_150 = pynini.cross("௧௫௦", "நூற்றைம்பது")
+        graph_160 = pynini.cross("௧௬௦", "நூற்றறுபது")
+        graph_170 = pynini.cross("௧௭௦", "நூற்றெழுபது")
+        graph_180 = pynini.cross("௧௮௦", "நூற்றெண்பது")
+        graph_190 = pynini.cross("௧௯௦", "நூற்றொண்ணூறு")
+        graph_150_190 = graph_150 | graph_160 | graph_170 | graph_180 | graph_190
+
+        # For 151-159, 161-169, etc.: special combined forms + digit
+        # 151 = நூற்றைம்பத்தொன்று, etc.
+        graph_151_159 = (
+            pynutil.delete("௧")
+            + pynutil.delete("௫")
+            + pynutil.insert("நூற்றைம்பத்து")
+            + insert_space
+            + digit
+        )
+        graph_161_169 = (
+            pynutil.delete("௧")
+            + pynutil.delete("௬")
+            + pynutil.insert("நூற்றறுபத்து")
+            + insert_space
+            + digit
+        )
+        graph_171_179 = (
+            pynutil.delete("௧")
+            + pynutil.delete("௭")
+            + pynutil.insert("நூற்றெழுபத்து")
+            + insert_space
+            + digit
+        )
+        graph_181_189 = (
+            pynutil.delete("௧")
+            + pynutil.delete("௮")
+            + pynutil.insert("நூற்றெண்பத்து")
+            + insert_space
+            + digit
+        )
+        graph_191_199 = (
+            pynutil.delete("௧")
+            + pynutil.delete("௯")
+            + pynutil.insert("நூற்றொண்ணூற்று")
+            + insert_space
+            + digit
+        )
+        graph_151_199_special = (
+            graph_151_159 | graph_161_169 | graph_171_179 | graph_181_189 | graph_191_199
+        )
+
+        # Combine all 100-199 patterns
+        # Order matters: special cases first (they're more specific)
+        graph_100_199 = (
+            graph_hundred_exact
+            | graph_101_109
+            | graph_150_190  # Special cases first
+            | graph_151_199_special  # Special cases first
+            | graph_110_199_general  # General pattern last
+        )
+
+        # Exact hundreds 200-900 come from the joined-form table (இருநூறு ... தொள்ளாயிரம்).
+        tamil_zero = "௦"
+        graph_hundreds_exact = pynini.string_file(
+            get_abs_path("data/numbers/hundreds_exact.tsv")
+        ).optimize()
+
+        # For 201-209: joined stem + digit (e.g., 205 = இருநூற்று ஐந்து)
+        graph_201_209_2_8 = hundreds_combined + pynutil.delete(tamil_zero) + insert_space + digit
+
+        # Special case: 901-909: தொள்ளாயிரத்து + digit
+        graph_901_909 = (
+            pynutil.delete("௯")
+            + pynutil.delete(tamil_zero)
+            + pynutil.insert("தொள்ளாயிரத்து")
+            + insert_space
+            + digit
+        )
+        graph_201_209 = graph_201_209_2_8 | graph_901_909
+
+        # For 210-899: joined stem + tens/teens (e.g., 456 = நானூற்று ஐம்பத்தாறு)
+        graph_210_899 = hundreds_combined + insert_space + teens_ties
+
+        # Special case: 910-999: தொள்ளாயிரத்து + tens/teens
+        graph_910_999 = (
+            pynutil.delete("௯") + pynutil.insert(" தொள்ளாயிரத்து") + insert_space + teens_ties
+        )
+        graph_210_999 = graph_210_899 | graph_910_999
+
+        # Combine all hundred patterns
+        graph_all_hundreds = (
+            graph_100_199 | graph_hundreds_exact | graph_201_209 | graph_210_999
+        ).optimize()
+
+        self.graph_hundreds = graph_all_hundreds
+
+        # Thousands and Ten thousands graph (1000-99999)
+        # Tamil: ஆயிரம் (aayiram)
+        suffix_thousands = pynutil.insert(" ஆயிரம்")
+        graph_thousands = create_graph_suffix(digit, suffix_thousands, 3)
+        graph_thousands |= create_larger_number_graph(digit, suffix_thousands, 2, digit)
+        graph_thousands |= create_larger_number_graph(digit, suffix_thousands, 1, teens_ties)
+        graph_thousands |= create_larger_number_graph(
+            digit, suffix_thousands, 0, graph_all_hundreds
+        )
+        graph_thousands.optimize()
+        self.graph_thousands = graph_thousands
+
+        graph_ten_thousands = create_graph_suffix(teens_and_ties, suffix_thousands, 3)
+        graph_ten_thousands |= create_larger_number_graph(
+            teens_and_ties, suffix_thousands, 2, digit
+        )
+        graph_ten_thousands |= create_larger_number_graph(
+            teens_and_ties, suffix_thousands, 1, teens_ties
+        )
+        graph_ten_thousands |= create_larger_number_graph(
+            teens_and_ties, suffix_thousands, 0, graph_all_hundreds
+        )
+        graph_ten_thousands.optimize()
+        self.graph_ten_thousands = graph_ten_thousands
+
+        # Lakhs graph and ten lakhs graph (100000-9999999)
+        # Tamil: இலட்சம் (ilatcham)
+        suffix_lakhs = pynutil.insert(" இலட்சம்")
+        graph_lakhs = create_graph_suffix(digit, suffix_lakhs, 5)
+        graph_lakhs |= create_larger_number_graph(digit, suffix_lakhs, 4, digit)
+        graph_lakhs |= create_larger_number_graph(digit, suffix_lakhs, 3, teens_ties)
+        graph_lakhs |= create_larger_number_graph(digit, suffix_lakhs, 2, graph_all_hundreds)
+        graph_lakhs |= create_larger_number_graph(digit, suffix_lakhs, 1, graph_thousands)
+        graph_lakhs |= create_larger_number_graph(digit, suffix_lakhs, 0, graph_ten_thousands)
+        graph_lakhs.optimize()
+        self.graph_lakhs = graph_lakhs
+
+        graph_ten_lakhs = create_graph_suffix(teens_and_ties, suffix_lakhs, 5)
+        graph_ten_lakhs |= create_larger_number_graph(teens_and_ties, suffix_lakhs, 4, digit)
+        graph_ten_lakhs |= create_larger_number_graph(teens_and_ties, suffix_lakhs, 3, teens_ties)
+        graph_ten_lakhs |= create_larger_number_graph(
+            teens_and_ties, suffix_lakhs, 2, graph_all_hundreds
+        )
+        graph_ten_lakhs |= create_larger_number_graph(
+            teens_and_ties, suffix_lakhs, 1, graph_thousands
+        )
+        graph_ten_lakhs |= create_larger_number_graph(
+            teens_and_ties, suffix_lakhs, 0, graph_ten_thousands
+        )
+        graph_ten_lakhs.optimize()
+        self.graph_ten_lakhs = graph_ten_lakhs
+
+        # Crores graph and ten crores graph (10000000+)
+        # Tamil: கோடி (kodi)
+        suffix_crores = pynutil.insert(" கோடி")
+        graph_crores = create_graph_suffix(digit, suffix_crores, 7)
+        graph_crores |= create_larger_number_graph(digit, suffix_crores, 6, digit)
+        graph_crores |= create_larger_number_graph(digit, suffix_crores, 5, teens_ties)
+        graph_crores |= create_larger_number_graph(digit, suffix_crores, 4, graph_all_hundreds)
+        graph_crores |= create_larger_number_graph(digit, suffix_crores, 3, graph_thousands)
+        graph_crores |= create_larger_number_graph(digit, suffix_crores, 2, graph_ten_thousands)
+        graph_crores |= create_larger_number_graph(digit, suffix_crores, 1, graph_lakhs)
+        graph_crores |= create_larger_number_graph(digit, suffix_crores, 0, graph_ten_lakhs)
+        graph_crores.optimize()
+        self.graph_crores = graph_crores
+
+        graph_ten_crores = create_graph_suffix(teens_and_ties, suffix_crores, 7)
+        graph_ten_crores |= create_larger_number_graph(teens_and_ties, suffix_crores, 6, digit)
+        graph_ten_crores |= create_larger_number_graph(teens_and_ties, suffix_crores, 5, teens_ties)
+        graph_ten_crores |= create_larger_number_graph(
+            teens_and_ties, suffix_crores, 4, graph_all_hundreds
+        )
+        graph_ten_crores |= create_larger_number_graph(
+            teens_and_ties, suffix_crores, 3, graph_thousands
+        )
+        graph_ten_crores |= create_larger_number_graph(
+            teens_and_ties, suffix_crores, 2, graph_ten_thousands
+        )
+        graph_ten_crores |= create_larger_number_graph(
+            teens_and_ties, suffix_crores, 1, graph_lakhs
+        )
+        graph_ten_crores |= create_larger_number_graph(
+            teens_and_ties, suffix_crores, 0, graph_ten_lakhs
+        )
+        graph_ten_crores.optimize()
+        self.graph_ten_crores = graph_ten_crores
+
+        # Handle leading zeros (e.g., 05 -> பூஜ்யம் ஐந்து)
+        single_digit = digit | zero
+        graph_leading_zero = zero + insert_space + single_digit
+        graph_leading_zero = pynutil.add_weight(graph_leading_zero, 0.5)
+
+        # Combine all number patterns efficiently
+        # Support both Tamil digits and Arabic digits
+        # Tamil digits go directly to final_graph
+        tamil_final_graph = (
+            digit
+            | zero
+            | teens_and_ties
+            | graph_all_hundreds
+            | graph_thousands
+            | graph_ten_thousands
+            | graph_lakhs
+            | graph_ten_lakhs
+            | graph_crores
+            | graph_ten_crores
+            | graph_leading_zero
+        ).optimize()
+
+        # Arabic digits: convert to Tamil, then apply the same graph
+        arabic_digit_input = pynini.closure(DIGIT, 1)
+        arabic_final_graph = pynini.compose(
+            arabic_digit_input, arabic_to_tamil_number @ tamil_final_graph
+        ).optimize()
+
+        # Strict international comma handling:
+        #   X,YYY -> X ஆயிரம் YYY
+        #   X,YYY,ZZZ -> X மில்லியன் YYY ஆயிரம் ZZZ
+        #   X,YYY,ZZZ,WWW -> X பில்லியன் YYY மில்லியன் ZZZ ஆயிரம் WWW
+        #   X,YYY,ZZZ,WWW,VVV -> X டிரில்லியன் YYY பில்லியன் ZZZ மில்லியன் WWW ஆயிரம் VVV
+        ta_1_3 = pynini.closure(TA_DIGIT, 1, 3)
+        ar_1_3 = pynini.closure(DIGIT, 1, 3)
+        ta_3 = TA_DIGIT + TA_DIGIT + TA_DIGIT
+        ar_3 = DIGIT + DIGIT + DIGIT
+        ta_3_nonzero = pynini.difference(ta_3, pynini.accep("௦௦௦")).optimize()
+        ar_3_nonzero = pynini.difference(ar_3, pynini.accep("000")).optimize()
+
+        up_to_999 = (graph_all_hundreds | teens_and_ties | digit | zero).optimize()
+        leading_zero_strip = pynini.closure(pynutil.delete("௦"), 0, 2)
+
+        group_1_3 = (
+            pynini.compose(ta_1_3, tamil_final_graph)
+            | pynini.compose(ar_1_3, arabic_to_tamil_number @ tamil_final_graph)
+        ).optimize()
+        group_3 = (
+            pynini.compose(ta_3, leading_zero_strip + up_to_999)
+            | pynini.compose(ar_3, arabic_to_tamil_number @ (leading_zero_strip + up_to_999))
+        ).optimize()
+        group_3_nonzero = (
+            pynini.compose(ta_3_nonzero, leading_zero_strip + up_to_999)
+            | pynini.compose(
+                ar_3_nonzero, arabic_to_tamil_number @ (leading_zero_strip + up_to_999)
+            )
+        ).optimize()
+
+        delete_comma = pynutil.delete(",")
+        intl_thousand = (group_1_3 + delete_comma + pynutil.insert(" ஆயிரம் ") + group_3).optimize()
+        intl_thousand_zero_tail = (
+            group_1_3
+            + delete_comma
+            + pynutil.insert(" ஆயிரம்")
+            + pynutil.delete(pynini.union("௦௦௦", "000"))
+        ).optimize()
+        intl_million = (
+            group_1_3
+            + delete_comma
+            + pynutil.insert(" மில்லியன் ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" ஆயிரம் ")
+            + group_3
+        ).optimize()
+        intl_million_zero_thousand = (
+            group_1_3
+            + delete_comma
+            + pynutil.insert(" மில்லியன் ")
+            + pynutil.delete(pynini.union("௦௦௦", "000"))
+            + delete_comma
+            + group_3
+        ).optimize()
+        intl_billion = (
+            group_1_3
+            + delete_comma
+            + pynutil.insert(" பில்லியன் ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" மில்லியன் ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" ஆயிரம் ")
+            + group_3
+        ).optimize()
+        intl_trillion = (
+            group_1_3
+            + delete_comma
+            + pynutil.insert(" டிரில்லியன் ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" பில்லியன் ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" மில்லியன் ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" ஆயிரம் ")
+            + group_3
+        ).optimize()
+        strict_intl_with_commas = (
+            pynutil.add_weight(intl_million_zero_thousand, -0.1)
+            | pynutil.add_weight(intl_thousand_zero_tail, -0.1)
+            | intl_trillion
+            | intl_billion
+            | intl_million
+            | intl_thousand
+        ).optimize()
+
+        # Indian comma/default handling.
+        tamil_with_commas = (
+            pynini.compose(indian_comma_pattern, delete_commas) @ tamil_final_graph
+        ).optimize()
+        tamil_final_with_commas = (
+            pynutil.add_weight(strict_intl_with_commas, -0.1)
+            | pynutil.add_weight(tamil_with_commas, -0.1)
+            | tamil_final_graph
+        )
+
+        # Arabic with Indian commas.
+        arabic_with_commas = (
+            pynini.compose(indian_comma_pattern, delete_commas)
+            @ arabic_to_tamil_number
+            @ tamil_final_graph
+        ).optimize()
+        arabic_final_with_commas = (
+            pynutil.add_weight(strict_intl_with_commas, -0.1)
+            | pynutil.add_weight(arabic_with_commas, -0.1)
+            | arabic_final_graph
+        )
+
+        # Combine both Tamil and Arabic digit paths (both with comma support)
+        final_graph = tamil_final_with_commas | arabic_final_with_commas
+
+        # Handle negative numbers
+        optional_minus_graph = pynini.closure(
+            pynutil.insert("negative: ") + pynini.cross("-", '"true" '), 0, 1
+        )
+
+        self.final_graph = final_graph
+        final_graph = (
+            optional_minus_graph
+            + pynutil.insert('integer: "')
+            + self.final_graph
+            + pynutil.insert('"')
+        )
+        final_graph = self.add_tokens(final_graph)
+        self.fst = final_graph.optimize()
