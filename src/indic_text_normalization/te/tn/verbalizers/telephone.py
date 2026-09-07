@@ -1,0 +1,83 @@
+# Copyright (c) 2024, NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import pynini
+from pynini.lib import pynutil
+
+from indic_text_normalization.te.constants import (
+    MIN_NEG_WEIGHT,
+    NOT_QUOTE,
+    SPACE,
+    GraphFst,
+    delete_space,
+    insert_space,
+)
+
+
+class TelephoneFst(GraphFst):
+    """
+    Finite state transducer for verbalizing telephone numbers in Telugu.
+
+    Examples:
+        telephone { country_code: "ప్లస్ తొమ్మిది ఒకటి" number_part: "తొమ్మిది ఎనిమిది ఏడు ఆరు ఐదు నాలుగు మూడు రెండు ఒకటి సున్నా" }
+        -> ప్లస్ తొమ్మిది ఒకటి తొమ్మిది ఎనిమిది ఏడు ఆరు ఐదు నాలుగు మూడు రెండు ఒకటి సున్నా
+
+        telephone { number_part: "సున్నా తొమ్మిది ఎనిమిది ఏడు ఆరు ఐదు నాలుగు మూడు రెండు ఒకటి సున్నా" }
+        -> సున్నా తొమ్మిది ఎనిమిది ఏడు ఆరు ఐదు నాలుగు మూడు రెండు ఒకటి సున్నా
+
+    Args:
+        deterministic: if True will provide a single transduction option
+    """
+
+    def __init__(self, deterministic: bool = True):
+        super().__init__(name="telephone", kind="verbalize", deterministic=deterministic)
+
+        # Optional country code
+        optional_country_code = pynini.closure(
+            pynutil.delete('country_code: "')
+            + pynini.closure(NOT_QUOTE, 1)
+            + pynutil.delete('"')
+            + delete_space
+            + insert_space,
+            0,
+            1,
+        )
+
+        # Number part (required)
+        number_part = (
+            pynutil.delete('number_part: "')
+            + pynini.closure(NOT_QUOTE, 1)
+            + pynini.closure(pynutil.add_weight(pynutil.delete(SPACE), MIN_NEG_WEIGHT), 0, 1)
+            + pynutil.delete('"')
+        )
+
+        # Optional extension
+        optional_extension = pynini.closure(
+            delete_space
+            + insert_space
+            + pynutil.delete('extension: "')
+            + pynini.closure(NOT_QUOTE, 1)
+            + pynutil.delete('"'),
+            0,
+            1,
+        )
+
+        # Standalone country code, e.g. "+91 என்பது குறியீடு".
+        country_code_only = (
+            pynutil.delete('country_code: "') + pynini.closure(NOT_QUOTE, 1) + pynutil.delete('"')
+        )
+
+        graph = (optional_country_code + number_part + optional_extension) | country_code_only
+        delete_tokens = self.delete_tokens(graph)
+        self.fst = delete_tokens.optimize()

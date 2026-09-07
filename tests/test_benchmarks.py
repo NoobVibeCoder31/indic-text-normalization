@@ -1,17 +1,22 @@
 """
-Tests for the benchmark dataset, the reference verbalizer and the runner.
+Tests for the benchmark datasets, the reference verbalizers and the runner.
 """
 
 import csv
 import re
 import unicodedata
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 from _pytest.mark.structures import ParameterSet
 
+from benchmarks import generate_ta_tn, generate_te_tn
 from benchmarks import ta_reference as ref
-from benchmarks.generate_ta_tn import QUOTAS, Generator, indian_commas
+from benchmarks import te_reference
+from benchmarks.generate_ta_tn import QUOTAS, indian_commas
 from benchmarks.run_benchmark import (
     CORRECT,
     ERROR,
@@ -28,42 +33,75 @@ from indic_text_normalization import Normalizer
 
 from .conftest import load_golden
 
-BENCHMARK_CSV = Path(__file__).parent.parent / "benchmarks" / "ta_tn_benchmark.csv"
-# The dataset is generated, not committed (2 MB; CLAUDE.md requires discussion before
-# committing test data over 1 MB). Regenerate with benchmarks/generate_ta_tn.py.
+BENCHMARKS = Path(__file__).parent.parent / "benchmarks"
+BENCHMARK_CSV = BENCHMARKS / "ta_tn_benchmark.csv"
+# The datasets are generated, not committed (2 MB each; CLAUDE.md requires discussion
+# before committing test data over 1 MB). Regenerate with benchmarks/generate_<lang>_tn.py.
 requires_benchmark = pytest.mark.skipif(
     not BENCHMARK_CSV.exists(), reason=f"{BENCHMARK_CSV.name} not generated"
 )
 ALLOWED_TYPES = set(QUOTAS)
 
-GOLDEN_SHAPES = {
-    "cardinal": re.compile(r"^-?[\d௦-௯]+(?:,[\d௦-௯]+)*$"),
-    "decimal": re.compile(r"^-?[\d௦-௯]+\.[\d௦-௯]+$"),
-    "date": re.compile(r"^[\d௦-௯]{2,4}[-/.][\d௦-௯]{2}[-/.][\d௦-௯]{2,4}$"),
-    "time": re.compile(r"^[\d௦-௯]{1,2}:[\d௦-௯]{2}(?::[\d௦-௯]{2})?$"),
-    "money": re.compile(r"^\S*[\d௦-௯][\d,.௦-௯]*\S*$"),
-    "ordinal": re.compile(r"^[\d௦-௯]+(?:வது|ஆவது|ஆம்)$"),
-    "fraction": re.compile(r"^(?:[\d௦-௯]+ )?[\d௦-௯]+/[\d௦-௯]+$|^[\d௦-௯]*[½¼¾]$"),
-}
-REFERENCE_FUNCS = {
-    "cardinal": ref.cardinal,
-    "decimal": ref.decimal,
-    "date": ref.date,
-    "time": ref.time,
-    "money": ref.money,
-    "ordinal": ref.ordinal,
-    "fraction": ref.fraction,
-}
+
+def _shapes(digits: str, ordinal_suffix: str) -> dict[str, re.Pattern[str]]:
+    d = rf"[\d{digits}]"
+    return {
+        "cardinal": re.compile(rf"^-?{d}+(?:,{d}+)*$"),
+        "decimal": re.compile(rf"^-?{d}+\.{d}+$"),
+        "date": re.compile(rf"^{d}{{2,4}}[-/.]{d}{{2}}[-/.]{d}{{2,4}}$"),
+        "time": re.compile(rf"^{d}{{1,2}}:{d}{{2}}(?::{d}{{2}})?$"),
+        "money": re.compile(rf"^\S*{d}[\d,.{digits}]*\S*$"),
+        "ordinal": re.compile(rf"^{d}+(?:{ordinal_suffix})$"),
+        "fraction": re.compile(rf"^(?:{d}+ )?{d}+/{d}+$|^{d}*[½¼¾]$"),
+    }
+
+
+@dataclass(frozen=True)
+class Language:
+    """
+    One benchmarked language: its reference module, generator module and dataset.
+    """
+
+    code: str
+    reference: ModuleType
+    generator: ModuleType
+    csv: Path
+    shapes: dict[str, re.Pattern[str]]
+    has_alternatives: bool
+
+
+LANGUAGES = [
+    Language("ta", ref, generate_ta_tn, BENCHMARK_CSV, _shapes("௦-௯", "வது|ஆவது|ஆம்"), True),
+    Language(
+        "te",
+        te_reference,
+        generate_te_tn,
+        BENCHMARKS / "te_tn_benchmark.csv",
+        _shapes("౦-౯", "వ|వది|-వ"),
+        False,
+    ),
+]
+LANGUAGE_IDS = [lang.code for lang in LANGUAGES]
+
+
+def _reference_funcs(module: ModuleType) -> dict[str, Callable[[str], str]]:
+    return {
+        kind: getattr(module, kind)
+        for kind in ("cardinal", "decimal", "date", "time", "money", "ordinal", "fraction")
+    }
 
 
 def _golden_span_cases() -> list[ParameterSet]:
     cases = []
-    for kind, shape in GOLDEN_SHAPES.items():
-        for param in load_golden("ta", "tn", kind):
-            text, expected = param.values
-            assert isinstance(text, str)
-            if shape.match(text):
-                cases.append(pytest.param(kind, text, expected, id=param.id))
+    for lang in LANGUAGES:
+        for kind, shape in lang.shapes.items():
+            for param in load_golden(lang.code, "tn", kind):
+                text, expected = param.values
+                assert isinstance(text, str)
+                if shape.match(text):
+                    cases.append(
+                        pytest.param(lang, kind, text, expected, id=f"{lang.code}-{param.id}")
+                    )
     return cases
 
 
@@ -72,16 +110,34 @@ class TestReference:
     The reference verbalizer agrees with the reviewed golden data on bare spans.
     """
 
-    @pytest.mark.parametrize(("kind", "text", "expected"), _golden_span_cases())
-    def test_matches_golden(self, kind: str, text: str, expected: list[str]) -> None:
+    @pytest.mark.parametrize(("lang", "kind", "text", "expected"), _golden_span_cases())
+    def test_matches_golden(
+        self, lang: Language, kind: str, text: str, expected: list[str]
+    ) -> None:
         """
         Reference output is one of the accepted golden outputs.
         """
         try:
-            actual = REFERENCE_FUNCS[kind](text)
+            actual = _reference_funcs(lang.reference)[kind](text)
         except (KeyError, ValueError) as exc:
             pytest.skip(f"shape outside the reference's scope: {exc!r}")
         assert actual in expected
+
+    def test_telugu_morphology(self) -> None:
+        """
+        Plural/oblique scale words, ఒక, -ింట denominators and suffix sandhi behave as documented.
+        """
+        assert te_reference.cardinal("2024") == "రెండు వేల ఇరవై నాలుగు"
+        assert te_reference.cardinal("2000") == "రెండు వేలు"
+        assert te_reference.cardinal("1,50,000") == "లక్ష యాభై వేలు"
+        assert te_reference.cardinal("1,000,000") == "పది లక్షలు"
+        assert te_reference.year("1947") == "పందొమ్మిది వందల నలభై ఏడు"
+        assert te_reference.suffixed("2000", "లో") == "రెండు వేలలో"
+        assert te_reference.suffixed("2000", "గా") == "రెండు వేలుగా"
+        assert te_reference.money("₹2000") == "రెండు వేల రూపాయలు"
+        assert te_reference.fraction("3/4") == "నాలుగింట మూడు వంతులు"
+        assert te_reference.ordinal("20వ") == "ఇరవయ్యవ"
+        assert te_reference.time("10:01 గంటలకి") == "పది గంటల ఒక నిమిషానికి"
 
     def test_style_rewrites(self) -> None:
         """
@@ -104,24 +160,31 @@ class TestReference:
         assert indian_commas("999") == "999"
         assert indian_commas("1000") == "1,000"
 
-    def test_generator_is_deterministic(self) -> None:
+    @pytest.mark.parametrize("lang", LANGUAGES, ids=LANGUAGE_IDS)
+    def test_generator_is_deterministic(self, lang: Language) -> None:
         """
         The same seed produces the same rows.
         """
-        first = [Generator(7).row(kind) for kind in QUOTAS]
-        second = [Generator(7).row(kind) for kind in QUOTAS]
+        gen = lang.generator.Generator
+        first = [gen(7).row(kind) for kind in lang.generator.QUOTAS]
+        second = [gen(7).row(kind) for kind in lang.generator.QUOTAS]
         assert first == second
 
 
 @requires_benchmark
 class TestDataset:
     """
-    Integrity checks for ``benchmarks/ta_tn_benchmark.csv``.
+    Integrity checks for the ``benchmarks/<lang>_tn_benchmark.csv`` datasets.
     """
 
+    @pytest.fixture(scope="class", params=LANGUAGES, ids=LANGUAGE_IDS)
+    def lang(self, request: pytest.FixtureRequest) -> Language:
+        language: Language = request.param
+        return language
+
     @pytest.fixture(scope="class")
-    def records(self) -> list[dict[str, str]]:
-        with open(BENCHMARK_CSV, encoding="utf-8", newline="") as f:
+    def records(self, lang: Language) -> list[dict[str, str]]:
+        with open(lang.csv, encoding="utf-8", newline="") as f:
             reader = csv.DictReader(f)
             assert reader.fieldnames == ["input", "expected", "type"]
             return list(reader)
@@ -154,13 +217,13 @@ class TestDataset:
         present = {rec["type"] for rec in records}
         assert present == ALLOWED_TYPES
 
-    def test_loader_accepts_alternatives(self) -> None:
+    def test_loader_accepts_alternatives(self, lang: Language) -> None:
         """
         ``~``-separated expected values load as tuples of alternatives.
         """
-        rows = load_rows(BENCHMARK_CSV, limit=None)
+        rows = load_rows(lang.csv, limit=None)
         assert len(rows) >= 10_000
-        assert any(len(r.expected) > 1 for r in rows)
+        assert any(len(r.expected) > 1 for r in rows) == lang.has_alternatives
 
 
 class TestRunner:
@@ -204,15 +267,18 @@ class TestRunner:
         assert report.errors == 1
 
     @requires_benchmark
-    def test_run_chunk_with_engine(self, ta_tn: Normalizer) -> None:
+    @pytest.mark.parametrize("lang", LANGUAGES, ids=LANGUAGE_IDS)
+    def test_run_chunk_with_engine(self, lang: Language, request: pytest.FixtureRequest) -> None:
         """
         Real engine over the first benchmark rows produces the expected outputs.
         """
-        rows = load_rows(BENCHMARK_CSV, limit=25)
-        results = run_chunk([(r.index, r.text) for r in rows], ta_tn.normalize)
+        normalizer: Normalizer = request.getfixturevalue(f"{lang.code}_tn")
+        rows = load_rows(lang.csv, limit=25)
+        results = run_chunk([(r.index, r.text) for r in rows], normalizer.normalize)
         report = evaluate(rows, results)
         assert report.errors == 0
         assert report.total == 25
+        assert report.correct == 25
         assert all(r.seconds >= 0 for r in results)
 
     def test_missing_column(self, tmp_path: Path) -> None:

@@ -1,6 +1,6 @@
 [project]
 name = "indic-text-normalization"
-version = "0.1.0"
+version = "0.2.0"
 description = "WFST-based text normalization (TN) and inverse text normalization (ITN) for Indic languages"
 readme = "README.md"
 license = "Apache-2.0"
@@ -8,7 +8,7 @@ license-files = ["LICENSE", "NOTICE"]
 authors = [{ name = "veera.puthiran", email = "veera.puthiran@zohocorp.com" }]
 requires-python = ">=3.10,<3.13"
 dependencies = ["pynini==2.1.6.post1"]
-keywords = ["text-normalization", "itn", "tts", "asr", "tamil", "indic", "wfst"]
+keywords = ["text-normalization", "itn", "tts", "asr", "tamil", "telugu", "indic", "wfst"]
 classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",

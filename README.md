@@ -16,7 +16,7 @@ architecture of
 [NVIDIA NeMo-text-processing](https://github.com/NVIDIA/NeMo-text-processing). The
 implementation is a means, not the point — see [Project direction](#project-direction).
 
-Tamil is supported today. Telugu is in progress; Malayalam, Kannada and Hindi are planned.
+Tamil and Telugu are supported today; Malayalam, Kannada and Hindi are planned.
 
 ## What it does
 
@@ -25,7 +25,11 @@ Tamil is supported today. Telugu is in progress; Malayalam, Kannada and Hindi ar
 
 Semiotic classes: cardinal, ordinal, decimal, fraction, date, time, money, measure,
 telephone, range, plus whitelist/abbreviations, punctuation, and a pass-through word class.
-Both Tamil (௦-௯) and ASCII digits are accepted in written form.
+Native digits (Tamil ௦-௯, Telugu ౦-౯) and ASCII digits are both accepted in
+written form.
+
+Telugu uses the formal register: `₹1,250.50` → `వెయ్యి రెండు వందల యాభై రూపాయల యాభై పైసలు`,
+`12.5` → `పన్నెండు దశాంశం ఐదు`, `10:30` → `పది గంటల ముప్పై నిమిషాలు`.
 
 ## Requirements
 
@@ -71,6 +75,11 @@ itn = InverseNormalizer(lang="ta")
 itn.inverse_normalize("ஐம்பது ரூபாய்")                 # ₹50
 itn.inverse_normalize("பத்து மணி முப்பது நிமிடம்")      # 10:30
 itn.inverse_normalize("இருபத்துமூன்று பேர் வந்தனர்")     # 23 பேர் வந்தனர்
+
+te = Normalizer(lang="te")
+te.normalize("15-06-2024")                 # పదిహేను జూన్ రెండు వేల ఇరవై నాలుగు
+te.normalize("₹5 కోట్లు")                  # ఐదు కోట్ల రూపాయలు
+InverseNormalizer(lang="te").inverse_normalize("రెండు వేల ఇరవై నాలుగులో")  # 2024లో
 ```
 
 Whole sentences work too — each token is classified independently, and anything the
@@ -121,11 +130,13 @@ See `CLAUDE.md` for the full project rules.
 
 ## Benchmarks
 
-`benchmarks/ta_tn_benchmark.csv` holds 10k+ Tamil TN rows (`input,expected,type`).
-Run it in parallel and get accuracy per semiotic class plus a mismatch report:
+`benchmarks/ta_tn_benchmark.csv` and `benchmarks/te_tn_benchmark.csv` hold 10k+ TN rows
+each (`input,expected,type`). Run one in parallel and get accuracy per semiotic class plus
+a mismatch report:
 
 ```bash
 uv run python benchmarks/run_benchmark.py benchmarks/ta_tn_benchmark.csv --workers 8
+uv run python benchmarks/run_benchmark.py benchmarks/te_tn_benchmark.csv --lang te --workers 8
 ```
 
 See `benchmarks/README.md` for the schema and how the dataset is generated, and
@@ -134,9 +145,12 @@ See `benchmarks/README.md` for the schema and how the dataset is generated, and
 ## Adding a language
 
 1. Create `src/indic_text_normalization/<lang>/` with `data/`, `tn/`, and `itn/`
-   mirroring the `ta` package (shared logic lives in `core/`).
-2. Register the grammar factories in `core/registry.py`.
-3. Add golden data under `tests/data/<lang>/{tn,itn}/` and per-class tests.
+   mirroring the `ta` or `te` package (shared logic lives in `core/`); document every
+   table in `<lang>/data/README.md`.
+2. Register the grammar factories in `core/registry.py` and add `<lang>_tn` / `<lang>_itn`
+   fixtures in `tests/conftest.py`.
+3. Add golden data under `tests/data/<lang>/{tn,itn}/`, per-class tests, and an
+   idempotency / round-trip module under `tests/<lang>/`.
 
 ## Project direction
 

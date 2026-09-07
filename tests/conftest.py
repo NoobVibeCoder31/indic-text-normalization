@@ -56,3 +56,19 @@ def ta_itn() -> InverseNormalizer:
     Session-wide Tamil ITN normalizer (grammar compiled once).
     """
     return InverseNormalizer(lang="ta")
+
+
+@pytest.fixture(scope="session")
+def te_tn() -> Normalizer:
+    """
+    Session-wide Telugu TN normalizer (grammar compiled once).
+    """
+    return Normalizer(lang="te")
+
+
+@pytest.fixture(scope="session")
+def te_itn() -> InverseNormalizer:
+    """
+    Session-wide Telugu ITN normalizer (grammar compiled once).
+    """
+    return InverseNormalizer(lang="te")

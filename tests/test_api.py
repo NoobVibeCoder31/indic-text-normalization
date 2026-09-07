@@ -2,15 +2,14 @@
 Unit tests for the public API and grammar registry.
 """
 
-import pytest
-
-from indic_text_normalization import InverseNormalizer, Normalizer
-from indic_text_normalization.core.registry import ITN, TN, supported_languages
 from pathlib import Path
 
+import pytest
+
 import indic_text_normalization
-from indic_text_normalization import api
+from indic_text_normalization import InverseNormalizer, Normalizer, api
 from indic_text_normalization.core import cache
+from indic_text_normalization.core.registry import ITN, TN, supported_languages
 
 
 class TestNormalizer:
@@ -41,22 +40,35 @@ class TestNormalizer:
         assert ta_itn.inverse_normalize("") == ""
         assert ta_itn.inverse_normalize(" \t ") == ""
 
-    def test_registry_lists_tamil(self) -> None:
+    @pytest.mark.parametrize("lang", ["ta", "te"])
+    def test_registry_lists_language(self, lang: str) -> None:
         """
-        Tamil is registered for both directions.
+        Every shipped language is registered for both directions.
         """
-        assert "ta" in supported_languages(TN)
-        assert "ta" in supported_languages(ITN)
+        assert lang in supported_languages(TN)
+        assert lang in supported_languages(ITN)
 
-    def test_far_cache_round_trip(self, tmp_path: object, ta_tn: Normalizer) -> None:
+    def test_empty_input_telugu(self, te_tn: Normalizer, te_itn: InverseNormalizer) -> None:
+        """
+        Empty and whitespace-only inputs come back empty for Telugu too.
+        """
+        assert te_tn.normalize("") == ""
+        assert te_tn.normalize(" \t ") == ""
+        assert te_itn.inverse_normalize("   ") == ""
+
+    @pytest.mark.parametrize("lang", ["ta", "te"])
+    def test_far_cache_round_trip(
+        self, tmp_path: object, lang: str, request: pytest.FixtureRequest
+    ) -> None:
         """
         A cached grammar loads from FAR and produces identical output.
         """
-        cached = Normalizer(lang="ta", cache_dir=str(tmp_path))
-        reloaded = Normalizer(lang="ta", cache_dir=str(tmp_path))
+        live: Normalizer = request.getfixturevalue(f"{lang}_tn")
+        cached = Normalizer(lang=lang, cache_dir=str(tmp_path))
+        reloaded = Normalizer(lang=lang, cache_dir=str(tmp_path))
         for text in ["123", "₹50", "10:30"]:
-            assert cached.normalize(text) == ta_tn.normalize(text)
-            assert reloaded.normalize(text) == ta_tn.normalize(text)
+            assert cached.normalize(text) == live.normalize(text)
+            assert reloaded.normalize(text) == live.normalize(text)
 
 
 class TestGrammarCacheIdentity:

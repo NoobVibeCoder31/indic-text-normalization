@@ -20,6 +20,8 @@ build/
 # Benchmark artefacts
 benchmarks/reports/
 benchmarks/.far_cache/
+benchmarks/*.csv
+
 temp/
 
 # Verbose engineering log behind CHANGELOG.md; not part of the published history.

@@ -1,0 +1,12 @@
+# input~expected[~alt_expected...]
+నమస్కారం~నమస్కారం
+hello world~hello world
+అతను ఇంటికి వెళ్ళాడు.~అతను ఇంటికి వెళ్ళాడు .
+నమస్కారం, మీరు ఎలా ఉన్నారు?~నమస్కారం , మీరు ఎలా ఉన్నారు ?
+తెలుగు english కలిపి~తెలుగు english కలిపి
+# URLs pass through as one token
+www.google.com~www.google.com
+https://example.com/path~https://example.com/path
+# number words already spoken stay unchanged
+ఐదు మంది వచ్చారు~ఐదు మంది వచ్చారు
+ఒక రోజు~ఒక రోజు
