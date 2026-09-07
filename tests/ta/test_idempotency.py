@@ -16,7 +16,17 @@ DATA_DIR = Path(__file__).parent.parent / "data" / "ta"
 # valid ITN/ordinal input). These document known non-idempotent forms.
 KNOWN_TN_FAILURES: set[str] = set()
 
-_TAMIL_ALPHABET = [chr(i) for i in range(0x0B85, 0x0BB9)] + list(" .,-:0123456789")
+# Spoken symbols glued to digits, letters, currency or each other (probe-fix P1/P18).
+_SYMBOL_ATOMS = ["5", "௫", "அ", "₹", "%", "#", "+", "*", "&", "<", ">", "^", "(", ")", "/", "-"]
+_SYMBOL_PAIRS = {a + b for a in _SYMBOL_ATOMS for b in _SYMBOL_ATOMS} | {
+    a + " " + b for a in _SYMBOL_ATOMS for b in _SYMBOL_ATOMS
+}
+
+_TAMIL_ALPHABET = (
+    [chr(i) for i in range(0x0B85, 0x0BB9)]
+    + [chr(i) for i in range(0x0BE6, 0x0BF0)]
+    + list(" .,-:0123456789%₹/#+*&<>^()")
+)
 
 
 def _golden_outputs(direction: str) -> list[str]:
@@ -41,6 +51,14 @@ class TestIdempotency:
         if spoken in KNOWN_TN_FAILURES:
             pytest.xfail("documented non-idempotent form")
         assert ta_tn.normalize(spoken) == spoken
+
+    @pytest.mark.parametrize("text", sorted(_SYMBOL_PAIRS))
+    def test_tn_symbol_pairs_idempotent(self, ta_tn: Normalizer, text: str) -> None:
+        """
+        Every digit/letter/symbol pair (glued or spaced) is a TN fixed point after one pass.
+        """
+        once = ta_tn.normalize(text)
+        assert ta_tn.normalize(once) == once
 
     @given(text=st.text(alphabet=_TAMIL_ALPHABET, max_size=30))
     @settings(

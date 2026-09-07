@@ -113,12 +113,26 @@ class DateFst(GraphFst):
         # 2-digit years are rejected: 15-06-24 is too ambiguous with number ranges.
         # A case suffix on the date lands on the year: 2024ல் -> ...நான்கில்.
         year_locative = (
-            year_graph @ (pynini.closure(CHAR) + pynini.cross("ு", "ில்"))
+            year_graph
+            @ (
+                pynini.closure(CHAR)
+                + pynini.union(pynini.cross("ு", "ில்"), pynini.cross("ம்", "த்தில்"))
+            )
         ) + pynutil.delete(pynini.union("ல்", "இல்"))
-        year_dative = year_graph + pynini.accep("க்கு")
+        year_dative = year_graph + pynini.union(
+            pynini.accep("க்கு"), pynini.accep("க்குள்"), pynini.accep("க்கும்")
+        )
+        # 2024ஆம் (தேதி/ஆண்டு): the ordinal stem replaces the final vowel.
+        year_aam = (
+            year_graph
+            @ (
+                pynini.closure(CHAR)
+                + pynini.union(pynini.cross("ு", "ா"), pynini.cross("ம்", "மா"))
+            )
+        ) + pynini.cross("ஆம்", "ம்")
         year_component = (
             pynutil.insert('year: "')
-            + (year_graph | year_locative | year_dative)
+            + (year_graph | year_locative | year_dative | year_aam)
             + pynutil.insert('"')
         )
 

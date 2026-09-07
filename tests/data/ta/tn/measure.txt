@@ -22,3 +22,10 @@
 # round2-fix F6: range amounts with units
 5-10 kg~ஐந்து முதல் பத்து கிலோகிராம்
 2-3 கி.மீ.~இரண்டு முதல் மூன்று கிலோமீட்டர்
+# probe-fix P16: uppercase single letters are IDs, not units (5G); new Tamil unit rows
+5G~5G
+5 g~ஐந்து கிராம்
+5 சத~ஐந்து சதவீதம்
+5 லி~ஐந்து லிட்டர்
+100மீ~நூறு மீட்டர்
+1 மீ~ஒரு மீட்டர்

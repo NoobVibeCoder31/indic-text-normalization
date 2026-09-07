@@ -16,6 +16,7 @@ import pynini
 from pynini.lib import pynutil
 
 from indic_text_normalization.ta.constants import (
+    ALPHA,
     MIN_NEG_WEIGHT,
     NOT_SPACE,
     GraphFst,
@@ -51,6 +52,11 @@ class WordFst(GraphFst):
         # Use TAMIL_CHAR in the graph
         graph = pynini.closure(pynini.difference(TAMIL_CHAR, symbols_to_exclude), 1)
         graph = pynutil.add_weight(graph, MIN_NEG_WEIGHT) | default_graph
+
+        # URLs stay whole instead of being split into punctuation tokens.
+        url_body = pynini.closure(pynini.difference(NOT_SPACE, pynini.accep('"')), 1)
+        url = (pynini.closure(ALPHA, 1) + "://" + url_body) | ("www." + url_body)
+        graph = pynutil.add_weight(url, MIN_NEG_WEIGHT) | graph
 
         # Ensure no spaces around punctuation
         graph = pynini.closure(graph + pynini.closure(punct + graph, 0, 1))

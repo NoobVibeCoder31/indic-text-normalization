@@ -15,7 +15,7 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.ta.constants import NOT_QUOTE, SPACE, GraphFst
+from indic_text_normalization.ta.constants import NOT_QUOTE, SIGMA, SPACE, GraphFst
 
 major_minor_currencies = {
     "ரூபாய்": "பைசா",
@@ -47,20 +47,27 @@ class MoneyFst(GraphFst):
     def __init__(self) -> None:
         super().__init__(name="money", kind="verbalize")
 
+        # A case suffix on the amount attaches to the currency word; the sandhi
+        # rewrite below joins ரூபாய் + ஆக -> ரூபாயாக and ரூபாய் + இல் -> ரூபாயில்.
+        optional_suffix = pynini.closure(
+            pynutil.delete(' suffix: "') + pynini.closure(NOT_QUOTE, 1) + pynutil.delete('"'), 0, 1
+        )
         currency_major = (
-            pynutil.delete('currency_maj: "') + pynini.closure(NOT_QUOTE, 1) + pynutil.delete('"')
+            pynutil.delete('currency_maj: "')
+            + pynini.closure(NOT_QUOTE, 1)
+            + pynutil.delete('"')
+            + optional_suffix
         )
 
-        # A whole-field ஒன்று — or ஒன்று heading a quantity phrase — reads as ஒரு.
-        rest = pynini.accep(" ") + pynini.closure(NOT_QUOTE, 1)
-        one_head = pynini.accep("ஒன்று")
-        one_as_oru = (
-            pynini.cross("ஒன்று", "ஒரு")
-            | (pynini.cross("ஒன்று", "ஒரு") + rest)
-            | pynini.difference(
-                pynini.closure(NOT_QUOTE, 1), pynini.union(one_head, one_head + rest)
-            )
+        # A whole-field ஒன்று — or ஒன்று heading a quantity phrase (ஒரு லட்சம்) — reads
+        # as ஒரு, but not before a decimal point (ஒன்று புள்ளி ஐந்து கோடி).
+        not_point = pynini.difference(
+            pynini.closure(NOT_QUOTE, 1), pynini.accep("புள்ளி") + pynini.closure(NOT_QUOTE)
         )
+        one_phrase = (pynini.accep("ஒன்று") + pynini.closure(" " + not_point, 0, 1)).optimize()
+        one_as_oru = pynini.cross("ஒன்று", "ஒரு") + pynini.closure(
+            " " + not_point, 0, 1
+        ) | pynini.difference(pynini.closure(NOT_QUOTE, 1), one_phrase)
         integer_part = pynutil.delete('integer_part: "') + one_as_oru + pynutil.delete('"')
 
         fractional_part = pynutil.delete('fractional_part: "') + one_as_oru + pynutil.delete('"')
@@ -115,6 +122,10 @@ class MoneyFst(GraphFst):
 
         optional_sign = pynini.closure(pynini.cross('negative: "true" ', "மைனஸ் "), 0, 1)
         graph = optional_sign + graph
+        suffix_sandhi = pynini.cdrewrite(
+            pynini.union(pynini.cross("்ஆ", "ா"), pynini.cross("்இ", "ி")), "", "", SIGMA
+        )
+        graph = graph @ suffix_sandhi
 
         delete_tokens = self.delete_tokens(graph)
         self.fst = delete_tokens.optimize()

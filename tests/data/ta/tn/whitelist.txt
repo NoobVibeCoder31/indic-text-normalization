@@ -8,3 +8,11 @@
 5%%~ஐந்து சதவீதம் சதவீதம்
 # round2-fix F11: dative percent
 10%க்கு~பத்து சதவீதத்துக்கு
+# probe-fix P18: multi-word symbol expansions are spoken with plain spaces (no U+00A0)
+→~வலது அம்பு
+5 → 10~ஐந்து வலது அம்பு பத்து
+™~வர்த்தகச் சின்னம்
+# probe-fix P18: other case suffixes on %
+10%ஆக~பத்து சதவீதமாக
+5%இல்~ஐந்து சதவீதத்தில்
+5%க்கும்~ஐந்து சதவீதத்துக்கும்

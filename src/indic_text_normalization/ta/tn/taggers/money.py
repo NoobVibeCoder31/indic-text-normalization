@@ -133,10 +133,40 @@ class MoneyFst(GraphFst):
         )
 
         # ₹5 கோடி style: the amount carries an Indian quantity word, and the
-        # currency reads after it (ஐந்து கோடி ரூபாய்).
-        quantity_word = pynini.union(
+        # currency reads after it (ஐந்து கோடி ரூபாய்). English scale words and the
+        # shorthands L/cr/K/M/B are spoken in Tamil (₹2 lakh, ₹15L, $50M).
+        tamil_quantity = pynini.union(
             "கோடி", "இலட்சம்", "லட்சம்", "ஆயிரம்", "மில்லியன்", "பில்லியன்", "டிரில்லியன்"
         )
+        english_quantity = pynini.string_map(
+            [
+                ("thousand", "ஆயிரம்"),
+                ("lakh", "இலட்சம்"),
+                ("lakhs", "இலட்சம்"),
+                ("crore", "கோடி"),
+                ("crores", "கோடி"),
+                ("million", "மில்லியன்"),
+                ("billion", "பில்லியன்"),
+                ("trillion", "டிரில்லியன்"),
+            ]
+        )
+        shorthand_quantity = pynini.string_map(
+            [
+                ("L", "இலட்சம்"),
+                ("cr", "கோடி"),
+                ("Cr", "கோடி"),
+                ("CR", "கோடி"),
+                ("K", "ஆயிரம்"),
+                ("k", "ஆயிரம்"),
+                ("M", "மில்லியன்"),
+                ("B", "பில்லியன்"),
+            ]
+        )
+        # ₹1 லட்சம் கோடி: two scale words may stack.
+        quantity_word = (
+            pynini.accep(" ") + (tamil_quantity | english_quantity)
+            | pynutil.delete(pynini.closure(" ", 0, 1)) + insert_space + shorthand_quantity
+        ) + pynini.closure(pynini.accep(" ") + tamil_quantity, 0, 1)
         single_frac_digit = pynini.union(DIGIT, TA_DIGIT) @ cardinal_graph
         amount_with_point = cardinal_graph + pynini.closure(
             pynini.cross(".", " புள்ளி ") + (cardinal.digit_by_digit | single_frac_digit), 0, 1
@@ -150,10 +180,34 @@ class MoneyFst(GraphFst):
             + insert_space
             + pynutil.insert('integer_part: "')
             + amount_with_point
-            + pynini.accep(" ")
             + quantity_word
             + pynutil.insert('"')
             + optional_slash_dash
+        )
+
+        # ₹50.123: three or more minor digits are not paise; read as a decimal amount.
+        long_fraction = pynini.compose(
+            pynini.closure(pynini.union(DIGIT, TA_DIGIT), 3), cardinal.digit_by_digit
+        )
+        graph_long_fraction = (
+            optional_graph_negative
+            + currency_major
+            + optional_space
+            + insert_space
+            + pynutil.insert('integer_part: "')
+            + cardinal_graph
+            + pynini.cross(".", " புள்ளி ")
+            + long_fraction
+            + pynutil.insert('"')
+        )
+
+        # 50/- with no symbol is rupees.
+        graph_slash_rupee = (
+            pynutil.insert('currency_maj: "ரூபாய்"')
+            + insert_space
+            + integer
+            + optional_space
+            + pynutil.delete("/-")
         )
 
         # A trailing .00 minor part is silent (₹1,999.00 -> ...ரூபாய்).
@@ -196,15 +250,29 @@ class MoneyFst(GraphFst):
             + optional_slash_dash
         )
 
-        # ₹150க்கு: the dative attaches to the currency word (ரூபாய்க்கு).
-        currency_major_kku = (
-            pynutil.insert('currency_maj: "')
-            + currency_graph
-            + pynutil.insert("க்கு")
-            + pynutil.insert('"')
+        # ₹150க்கு: a case suffix on the amount is carried as a field and attached to
+        # the currency word by the verbalizer (ரூபாய்க்கு, ரூபாயாக, ரூபாயில்); it may also
+        # follow a scale word (₹5 கோடிக்கு -> ஐந்து கோடி ரூபாய்க்கு).
+        case_suffix = pynini.union(
+            pynini.accep("க்கு"),
+            pynini.accep("க்கும்"),
+            pynini.accep("க்குள்"),
+            pynini.accep("ஆக"),
+            pynini.accep("ஆல்"),
+            pynini.accep("இல்"),
+            pynini.cross("ல்", "இல்"),
         )
         graph_major_kku = (
-            currency_major_kku + optional_space + insert_space + integer + pynutil.delete("க்கு")
+            optional_graph_negative
+            + currency_major
+            + optional_space
+            + insert_space
+            + pynutil.insert('integer_part: "')
+            + (amount_with_point + pynini.closure(quantity_word, 0, 1) | cardinal_with_commas)
+            + pynutil.insert('"')
+            + pynutil.insert(' suffix: "')
+            + case_suffix
+            + pynutil.insert('"')
         )
 
         graph_currencies = (
@@ -212,6 +280,8 @@ class MoneyFst(GraphFst):
             | graph_major_only
             | graph_major_and_minor
             | pynutil.add_weight(graph_quantity, -0.2)
+            | pynutil.add_weight(graph_long_fraction, 0.2)
+            | pynutil.add_weight(graph_slash_rupee, -0.1)
             | pynutil.add_weight(graph_zero_frac, -0.1)
             | pynutil.add_weight(graph_bare_paise, -0.1)
             | pynutil.add_weight(negative_after_currency, 0.1)

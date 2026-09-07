@@ -42,14 +42,32 @@ class MeasureFst(GraphFst):
         rows = [r for r in load_labels(get_abs_path("data/measure/unit.tsv")) if len(r) >= 2]
         # ID-prone letters (bus route 47A, model 570X...) swallow alphanumeric IDs
         # when glued to the number, so those match only after an explicit space.
-        id_prone = {"A", "B", "C", "J", "K", "N", "V", "W", "X", "b", "d", "h", "q", "s", "x", "*"}
+        id_prone = {
+            "A",
+            "B",
+            "C",
+            "G",
+            "J",
+            "K",
+            "N",
+            "V",
+            "W",
+            "X",
+            "b",
+            "d",
+            "h",
+            "q",
+            "s",
+            "x",
+            "*",
+        }
         multi = pynini.string_map(
             [(k, v) for k, v, *_ in rows if len(k) > 1 or k not in id_prone]
         ).optimize()
         single = pynini.string_map([(k, v) for k, v, *_ in rows if len(k) == 1]).optimize()
 
         # Accept uppercase spellings of Latin units (5KG).
-        lowercase = pynini.closure(TO_LOWER | pynini.union(*"abcdefghijklmnopqrstuvwxyz°²./"), 1)
+        lowercase = pynini.closure(TO_LOWER | pynini.union(*"abcdefghijklmnopqrstuvwxyz°²./"), 2)
         multi |= pynini.compose(lowercase, multi).optimize()
 
         unit_multi = convert_space(multi).optimize()

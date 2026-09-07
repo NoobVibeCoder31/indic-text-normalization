@@ -16,7 +16,9 @@ import pynini
 from pynini.lib import pynutil
 
 from indic_text_normalization.ta.constants import (
+    CHAR,
     DIGIT,
+    NOT_SPACE,
     SIGMA,
     SPACE,
     TA_BLOCK,
@@ -110,52 +112,141 @@ class ClassifyFst(GraphFst):
         graph = delete_space + graph + delete_space
         graph = pynini.union(graph, punct)
 
-        # A hyphen joining a digit to a Tamil word is a separator, e.g. "3.14-அங்கு" -> "3.14 அங்கு".
+        # A hyphen joining a digit to a Tamil word (or a Tamil word to a digit) is a
+        # separator, e.g. "3.14-அங்கு" -> "3.14 அங்கு", "15-ஜூன்-2024" -> "15 ஜூன் 2024".
         # Tamil digits are excluded from the right context so Tamil-digit dates keep their dashes.
         ta_letter = pynini.difference(TA_BLOCK, TA_DIGIT).optimize()
+        any_digit = pynini.union(DIGIT, TA_DIGIT)
         joiner_hyphen_to_space = pynini.cdrewrite(
-            pynini.cross("-", " "), pynini.union(DIGIT, TA_DIGIT), ta_letter, SIGMA
-        )
+            pynini.cross("-", " "), any_digit, ta_letter, SIGMA
+        ) @ pynini.cdrewrite(pynini.cross("-", " "), ta_letter, any_digit, SIGMA)
 
         # Split math/percent symbols off digits so the whitelist can verbalize them,
         # e.g. "5×3=15" -> "5 × 3 = 15", "5%" -> "5 %".
-        any_digit = pynini.union(DIGIT, TA_DIGIT)
         operator = pynini.union("×", "÷", "%", "=")
         space_after_digit = pynini.cdrewrite(pynutil.insert(" "), any_digit, operator, SIGMA)
         space_before_digit = pynini.cdrewrite(pynutil.insert(" "), operator, any_digit, SIGMA)
-        # "%" glued to punctuation, e.g. "(1.5%)", also needs splitting.
+        # Symbols the whitelist speaks are always their own token, so the first pass
+        # already speaks them whether or not they were glued (5#, அ%, ₹* ...).
+        spoken_symbol = pynini.union("#", "*", "&", "^", "%", "|", "~")
+        split_symbol = pynini.cdrewrite(
+            pynutil.insert(" "), NOT_SPACE, spoken_symbol, SIGMA
+        ) @ pynini.cdrewrite(pynutil.insert(" "), spoken_symbol, NOT_SPACE, SIGMA)
+        # "+" is a sign or country code only at a word start before a clean digit run
+        # (+91, +5, +919876543210ல்); elsewhere it is the operator word.
+        punct_char = pynini.union(*[pynini.escape(c) for c in ".,!?;:()[]{}'\"/"])
+        clean_tail = pynini.union(" ", "-", ta_letter, punct_char)
+        split_plus_junk = pynini.cdrewrite(
+            pynutil.insert(" "),
+            pynini.union("[BOS]", " ") + "+",
+            pynini.closure(any_digit, 1)
+            + pynini.difference(CHAR, pynini.union(clean_tail, any_digit)),
+            SIGMA,
+        )
+        split_plus = (
+            split_plus_junk
+            @ pynini.cdrewrite(pynini.cross("+", " + "), NOT_SPACE, any_digit, SIGMA)
+            @ pynini.cdrewrite(pynutil.insert(" "), NOT_SPACE, "+", SIGMA)
+            @ pynini.cdrewrite(
+                pynutil.insert(" "), "+", pynini.difference(NOT_SPACE, any_digit), SIGMA
+            )
+        )
+        # "<" and ">" are markup except between two digits, where they are comparisons.
+        spaces = pynini.closure(" ")
+        comparison = pynini.cdrewrite(
+            pynini.union(pynini.cross("<", " விடக் குறைவு "), pynini.cross(">", " விட அதிகம் ")),
+            any_digit + spaces,
+            spaces + any_digit,
+            SIGMA,
+        )
         trailing_punct = pynini.union(*[pynini.escape(c) for c in "()\"'{}[].,!?%"])
-        space_after_percent = pynini.cdrewrite(pynutil.insert(" "), "%", trailing_punct, SIGMA)
+
+        # Case and ordinal suffixes that may be written glued to a digit. Anything
+        # else glued to a digit is a separate word (5கிலோ -> 5 கிலோ).
+        case_suffixes = pynini.union(
+            "ல்",
+            "இல்",
+            "க்கு",
+            "க்கும்",
+            "க்குள்",
+            "கள்",
+            "களில்",
+            "உம்",
+            "ும்",
+            "ஆக",
+            "ஆல்",
+            "ால்",
+            "ஓடு",
+            "உடன்",
+            "ஐ",
+            "ன்",
+            "இன்",
+            "லிருந்து",
+            "இலிருந்து",
+            "த்தில்",
+            "த்துக்கு",
+            "தான்",
+            "ஆம்",
+            "ஆவது",
+            "வது",
+            "ஆவதாக",
+            "வதாக",
+        )
+        ordinal_tail = pynini.union("வத", "ஆவத") + pynini.closure(ta_letter, 1)
+        known_suffix = pynini.union(case_suffixes, ordinal_tail).optimize()
+        ta_word = pynini.closure(ta_letter, 1)
+        unknown_word = pynini.difference(ta_word, known_suffix).optimize()
+        boundary = pynini.union(" ", "[EOS]", pynini.difference(CHAR, ta_letter))
+        split_digit_word = pynini.cdrewrite(
+            pynutil.insert(" "), any_digit, unknown_word + boundary, SIGMA
+        )
 
         # A hyphen between a digit and a case/ordinal suffix belongs to the
         # suffix (3-வது, 2024-ல், 100-க்கு).
-        drop_ordinal_hyphen = pynini.cdrewrite(
-            pynutil.delete("-"),
+        drop_ordinal_hyphen = pynini.cdrewrite(pynutil.delete("-"), any_digit, known_suffix, SIGMA)
+
+        # %க்கு reads as a dative percent word; other case suffixes on % likewise.
+        percent_suffix = pynini.cdrewrite(
+            pynini.union(
+                pynini.cross("%க்கு", " சதவீதத்துக்கு"),
+                pynini.cross("%க்கும்", " சதவீதத்துக்கும்"),
+                pynini.cross("%ஆக", " சதவீதமாக"),
+                pynini.cross("%ஆல்", " சதவீதத்தால்"),
+                pynini.cross("%இல்", " சதவீதத்தில்"),
+                pynini.cross("%ல்", " சதவீதத்தில்"),
+                pynini.cross("%ஆவது", " சதவீதமாவது"),
+            ),
             any_digit,
-            pynini.union("வது", "ஆவது", "ஆம்", "ல்", "இல்", "க்கு", "கள்", "களில்"),
+            pynini.union(" ", "[EOS]", trailing_punct),
             SIGMA,
         )
+        # Any other Tamil word glued to % is a separate word.
+        percent_word = pynini.cdrewrite(pynutil.insert(" "), "%", ta_letter, SIGMA)
 
-        # %க்கு reads as a dative percent word.
-        percent_kku = pynini.cdrewrite(
-            pynini.cross("%க்கு", " சதவீதத்துக்கு"), any_digit, "", SIGMA
-        )
-
-        # A hyphen inside an equation is a minus, not a range: 5-3=2, 10-5-3=2.
+        # A hyphen inside an equation is a minus, not a range: 5-3=2, 10 - 5 = 5.
         subtraction_minus = pynini.cdrewrite(
             pynini.cross("-", " மைனஸ் "),
-            any_digit,
-            pynini.closure(pynini.union(any_digit, "-"), 1) + "=",
+            any_digit + spaces,
+            spaces + pynini.closure(pynini.union(any_digit, "-", " "), 1) + "=",
             SIGMA,
         )
+        # U+2212 MINUS SIGN between digits is subtraction; elsewhere it is a plain minus.
+        true_minus = pynini.cdrewrite(
+            pynini.cross("\u2212", " மைனஸ் "), any_digit + spaces, spaces + any_digit, SIGMA
+        ) @ pynini.cdrewrite(pynini.cross("\u2212", "-"), "", "", SIGMA)
 
-        self.fst = (
-            drop_ordinal_hyphen
-            @ percent_kku
+        pre_pass = (
+            true_minus
+            @ drop_ordinal_hyphen
+            @ percent_suffix
+            @ percent_word
             @ subtraction_minus
+            @ comparison
             @ space_after_digit
             @ space_before_digit
-            @ space_after_percent
+            @ split_symbol
+            @ split_plus
             @ joiner_hyphen_to_space
-            @ graph
+            @ split_digit_word
         ).optimize()
+        self.fst = (pre_pass @ graph).optimize()

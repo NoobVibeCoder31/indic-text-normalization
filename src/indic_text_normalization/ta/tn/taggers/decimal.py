@@ -22,9 +22,23 @@ from indic_text_normalization.ta.constants import (
     insert_space,
 )
 from indic_text_normalization.ta.tn.taggers.cardinal import CardinalFst
-from indic_text_normalization.ta.utils import get_abs_path
 
-quantities = pynini.string_file(get_abs_path("data/numbers/thousands.tsv"))
+# Scale words that may follow a number (5 லட்சம், 1.5 கோடி, 2 lakh, 5 million).
+_TA_QUANTITIES = ["ஆயிரம்", "இலட்சம்", "லட்சம்", "கோடி", "மில்லியன்", "பில்லியன்", "டிரில்லியன்"]
+_EN_QUANTITIES = {
+    "thousand": "ஆயிரம்",
+    "lakh": "இலட்சம்",
+    "lakhs": "இலட்சம்",
+    "crore": "கோடி",
+    "crores": "கோடி",
+    "million": "மில்லியன்",
+    "billion": "பில்லியன்",
+    "trillion": "டிரில்லியன்",
+}
+quantities = pynini.union(
+    pynini.union(*_TA_QUANTITIES),
+    pynini.string_map(list(_EN_QUANTITIES.items())),
+).optimize()
 
 # Convert Arabic digits (0-9) to Tamil digits (௦-௯)
 arabic_to_tamil_digit = pynini.string_map(
@@ -64,16 +78,15 @@ def get_quantity(
     """
     numbers = cardinal_up_to_hundred
 
-    res = (
-        pynutil.insert('integer_part: "')
-        + numbers
-        + pynutil.insert('"')
+    quantity = (
+        pynutil.delete(" ")
         + insert_space
         + pynutil.insert('quantity: "')
         + quantities
         + pynutil.insert('"')
     )
-    res |= decimal + insert_space + pynutil.insert('quantity: "') + quantities + pynutil.insert('"')
+    res = pynutil.insert('integer_part: "') + numbers + pynutil.insert('"') + quantity
+    res |= decimal + quantity
     return res
 
 

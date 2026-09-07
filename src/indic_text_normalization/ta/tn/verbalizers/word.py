@@ -47,5 +47,7 @@ class WordFst(GraphFst):
         # Explicitly remove spaces before punctuation
         remove_space_before_punct = pynini.cdrewrite(pynini.cross(" ", ""), "", punct, SIGMA)
         graph = graph @ remove_space_before_punct
+        # Multi-word values travel with U+00A0 NO-BREAK SPACE; speak them with plain spaces.
+        graph = graph @ pynini.cdrewrite(pynini.cross("\u00a0", " "), "", "", SIGMA)
 
         self.fst = graph.optimize()

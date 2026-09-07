@@ -38,22 +38,32 @@ class FractionFst(GraphFst):
 
         cardinal_graph = cardinal.final_graph
 
-        # A zero denominator has no locative form, so the verbalizer would reject it.
-        non_zero = pynini.difference(
-            pynini.closure(pynini.union(DIGIT, TA_DIGIT), 1),
-            pynini.closure(pynini.union("0", "௦"), 1),
+        # A zero or zero-led denominator (1/0, 15/06) has no locative form.
+        any_digit = pynini.union(DIGIT, TA_DIGIT)
+        non_zero_led = pynini.difference(
+            pynini.closure(any_digit, 1),
+            pynini.union("0", "௦") + pynini.closure(any_digit),
         ).optimize()
-        denominator_graph = pynini.compose(non_zero, cardinal_graph).optimize()
+        denominator_graph = pynini.compose(non_zero_led, cardinal_graph).optimize()
 
         integer = pynutil.insert('integer_part: "') + cardinal_graph + pynutil.insert('"')
+        # A zero-led numerator (06/24) is a date fragment, not a fraction.
+        numerator_input = pynini.difference(
+            pynini.closure(any_digit, 1),
+            pynini.union("0", "௦") + pynini.closure(any_digit, 1),
+        ).optimize()
         numerator = (
             pynutil.insert('numerator: "')
-            + cardinal_graph
+            + pynini.compose(numerator_input, cardinal_graph)
             + (pynini.cross("/", '" ') | pynini.cross(" / ", '" '))
         )
         denominator = pynutil.insert('denominator: "') + denominator_graph + pynutil.insert('"')
 
         graph = pynini.closure(integer + pynini.accep(" "), 0, 1) + (numerator + denominator)
+        optional_negative = pynini.closure(
+            pynutil.insert("negative: ") + pynini.cross("-", '"true" '), 0, 1
+        )
+        graph = optional_negative + graph
 
         vulgar = pynini.union(
             *[

@@ -16,7 +16,6 @@ import pynini
 from pynini.lib import pynutil
 
 from indic_text_normalization.ta.constants import MINUS, NOT_QUOTE, GraphFst, insert_space
-from indic_text_normalization.ta.tn.taggers.decimal import quantities
 
 
 class DecimalFst(GraphFst):
@@ -49,13 +48,21 @@ class DecimalFst(GraphFst):
             delete_space
             + insert_space
             + pynutil.delete('quantity: "')
-            + quantities
+            + pynini.closure(NOT_QUOTE, 1)
             + pynutil.delete('"')
         )
         self.optional_quantity = pynini.closure(self.quantity, 0, 1)
 
+        # A counting ஒன்று before a scale word reads as ஒரு (ஒரு லட்சம்).
+        one_as_oru = pynini.cross("ஒன்று", "ஒரு") | pynini.difference(
+            pynini.closure(NOT_QUOTE, 1), pynini.accep("ஒன்று")
+        )
+        integer_before_quantity = (
+            pynutil.delete('integer_part: "') + one_as_oru + pynutil.delete('"')
+        )
+
         graph = self.optional_sign + (
-            self.integer + self.quantity
+            integer_before_quantity + self.quantity
             | self.integer + delete_space + self.fractional + self.optional_quantity
         )
 

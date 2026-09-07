@@ -71,9 +71,13 @@ class TimeFst(GraphFst):
         self.minutes = pynutil.insert('minutes: "') + minute_input + pynutil.insert('" ')
         self.seconds = pynutil.insert('seconds: "') + second_input + pynutil.insert('" ')
 
-        # The verbalizer inserts மணி itself, so a trailing written மணிக்கு is absorbed here.
+        # The verbalizer inserts மணி itself, so a trailing written மணி/மணிக்கு (and a
+        # bare case suffix on the digits: 3:30க்கு, 10:30ல்) is absorbed here.
         optional_manikku = pynini.closure(
-            pynini.closure(SPACE, 0, 1) + pynutil.delete(pynini.union("மணிக்கு", "க்கு")), 0, 1
+            pynini.closure(SPACE, 0, 1)
+            + pynutil.delete(pynini.union("மணிக்கு", "மணி", "க்கு", "ல்", "இல்")),
+            0,
+            1,
         ).optimize()
 
         graph_hms = (
@@ -126,5 +130,36 @@ class TimeFst(GraphFst):
             | pynutil.add_weight(graph_h_s, 1.0)
             | pynutil.add_weight(graph_h, 0.8)
         ) + meridiem
+
+        # Press-style dotted time (10.30) is only a time with a clock context: a
+        # trailing மணி/மணிக்கு, or a day-part word / மு.ப. / பி.ப. before or after it.
+        two_digit_minutes = pynini.compose(
+            pynini.union(TA_DIGIT + TA_DIGIT, DIGIT + DIGIT), minute_input
+        )
+        dotted = (
+            self.hours
+            + pynutil.delete(".")
+            + insert_space
+            + pynutil.insert('minutes: "')
+            + two_digit_minutes
+            + pynutil.insert('" ')
+        )
+        space = pynini.closure(SPACE, 0, 1)
+        trailing_mani = space + pynutil.delete(pynini.union("மணிக்கு", "மணி"))
+        day_parts = ["காலை", "அதிகாலை", "மதியம்", "நண்பகல்", "மாலை", "இரவு", "முற்பகல்", "பிற்பகல்"]
+        abbrev = {"மு.ப.": "முற்பகல்", "மு.ப": "முற்பகல்", "பி.ப.": "பிற்பகல்", "பி.ப": "பிற்பகல்"}
+        contexts = [(w, w) for w in day_parts] + list(abbrev.items())
+        dotted_graphs = [dotted + trailing_mani]
+        for written, spoken in contexts:
+            meridiem_field = pynutil.insert(f' meridiem: "{spoken}"')
+            dotted_graphs.append(
+                pynutil.delete(written)
+                + pynutil.delete(" ")
+                + dotted
+                + pynini.closure(trailing_mani, 0, 1)
+                + meridiem_field
+            )
+            dotted_graphs.append(dotted + space + pynutil.delete(written) + meridiem_field)
+        final_graph |= pynutil.add_weight(pynini.union(*dotted_graphs), 0.9)
 
         self.fst = self.add_tokens(final_graph).optimize()

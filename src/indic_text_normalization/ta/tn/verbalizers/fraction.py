@@ -13,11 +13,13 @@
 # limitations under the License.
 
 import pynini
+from pynini.examples import plurals
 from pynini.lib import pynutil
 
 from indic_text_normalization.ta.constants import (
     MINUS,
     NOT_QUOTE,
+    SIGMA,
     GraphFst,
     delete_space,
     insert_space,
@@ -68,6 +70,18 @@ class FractionFst(GraphFst):
                 ("தொண்ணூறு", "தொண்ணூறில்"),
                 ("நூறு", "நூறில்"),
             ]
+        ).optimize()
+
+        # Every other denominator takes the regular locative: -உ -> -இல், a ம்-final
+        # scale word -> -த்தில், -இ -> -யில், and a hundreds compound -> -நூற்றில்.
+        generic_il = SIGMA + pynini.union(
+            pynini.cross("ு", "ில்"), pynini.cross("ம்", "த்தில்"), pynini.cross("ி", "ியில்")
+        )
+        hundreds_il = SIGMA + pynini.cross("நூறு", "நூற்றில்")
+        denominator_il_suffix = plurals._priority_union(
+            denominator_il_suffix,
+            plurals._priority_union(hundreds_il, generic_il, SIGMA),
+            SIGMA,
         ).optimize()
 
         denominator = (

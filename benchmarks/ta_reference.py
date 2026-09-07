@@ -296,7 +296,13 @@ def denominator_locative(den: int) -> str:
     """
     Locative (-இல்) form of a denominator, regular ``ு`` -> ``ில்`` morphology.
     """
-    word = _up_to_999(den)
+    word = _up_to_999(den) if den < 1000 else cardinal(str(den))
+    if word.endswith("நூறு") and word != "நூறு":
+        return word[: -len("நூறு")] + "நூற்றில்"
+    if word.endswith("ம்"):
+        return word[:-2] + "த்தில்"
+    if word.endswith("ி"):
+        return word + "யில்"
     if not word.endswith("ு"):
         raise ValueError(f"no locative denominator for {den}")
     return word[:-1] + "ில்"
@@ -314,6 +320,9 @@ def fraction(text: str) -> str:
     else:
         integer, _, frac = text.rpartition(" ")
         num_s, den_s = frac.split("/")
+        # Zero-led parts (15/06) are date fragments, not fractions.
+        if den_s.startswith("0") or (num_s.startswith("0") and num_s != "0"):
+            raise ValueError(f"not a fraction: {text!r}")
         num, den = int(num_s), int(den_s)
     words = f"{denominator_locative(den)} {cardinal(str(num))}"
     if integer:
@@ -388,6 +397,9 @@ def money(text: str) -> str:
         frac = ""
     if not frac:
         words = f"{integer_words} {major}"
+    elif len(frac) >= 3:
+        # Three or more minor digits are not paise: a decimal amount (₹50.123).
+        words = f"{cardinal(integer)} {POINT} {digit_by_digit(frac)} {major}"
     else:
         minor = int(frac) * 10 if len(frac) == 1 else int(frac)
         minor_words = _one_as_oru(cardinal(str(minor)))

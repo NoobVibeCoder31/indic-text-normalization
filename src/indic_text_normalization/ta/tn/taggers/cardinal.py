@@ -377,8 +377,10 @@ class CardinalFst(GraphFst):
 
         # Scale-word style: exactly one thousand is bare ஆயிரம்; a counting
         # prefix before a scale word is ஒரு, not ஒன்று (ஒரு இலட்சம், ஒரு கோடி).
+        # Before a following கோடி the thousand keeps its exact form (ஆயிரம் கோடி).
+        exact_end = pynini.union("[EOS]", " கோடி")
         drop_one_exact = pynini.cdrewrite(
-            pynini.cross("ஒன்று ஆயிரம்", "ஆயிரம்"), "[BOS]", "[EOS]", SIGMA
+            pynini.cross("ஒன்று ஆயிரம்", "ஆயிரம்"), "[BOS]", exact_end, SIGMA
         )
         drop_one_rest = pynini.cdrewrite(
             pynini.cross("ஒன்று ஆயிரம்", "ஆயிரத்து"), "[BOS]", " ", SIGMA
@@ -398,7 +400,7 @@ class CardinalFst(GraphFst):
         for d in ["இரண்டு", "மூன்று", "நான்கு", "ஐந்து", "ஆறு", "ஏழு", "எட்டு", "ஒன்பது"]:
             stem = d[:-1] + "ா"
             fuse_exact @= pynini.cdrewrite(
-                pynini.cross(f"{d} ஆயிரம்", f"{stem}யிரம்"), word_boundary, "[EOS]", SIGMA
+                pynini.cross(f"{d} ஆயிரம்", f"{stem}யிரம்"), word_boundary, exact_end, SIGMA
             )
             fuse_rest @= pynini.cdrewrite(
                 pynini.cross(f"{d} ஆயிரம்", f"{stem}யிரத்து"), word_boundary, " ", SIGMA
@@ -434,6 +436,12 @@ class CardinalFst(GraphFst):
             + pynini.closure(insert_space + (digit_word | (arabic_to_tamil_digit @ digit_word)), 1)
         ).optimize()
         self.digit_by_digit = digit_by_digit
+        # A comma-grouped run beyond the crore range (1,00,00,00,000) also falls back
+        # to digit-by-digit instead of being split at a comma.
+        commas_digit_by_digit = (
+            pynini.compose(indian_comma_pattern | intl_comma_pattern, delete_commas)
+            @ digit_by_digit
+        ).optimize()
 
         # Case-suffixed numbers, e.g. 2024ல் -> ...இருபத்துநான்கில். The locative
         # -இல் replaces the final -உ; ம்-final scale words take -த்தில்.
@@ -447,7 +455,7 @@ class CardinalFst(GraphFst):
         )
         # Dative க்கு/க்குள் and plural கள்/களில் attach to the number word;
         # ம்-final scale words take -த்து before the dative (இலட்சத்துக்கு).
-        dative = pynini.union(pynini.accep("க்கு"), pynini.accep("க்குள்"))
+        dative = pynini.union(pynini.accep("க்கு"), pynini.accep("க்குள்"), pynini.accep("க்கும்"))
         not_m_final = pynini.closure(CHAR) + pynini.difference(CHAR, pynini.accep("்"))
         suffixed_attach = (final_graph @ not_m_final) + dative
         suffixed_attach |= (final_graph @ (SIGMA + pynini.cross("ம்", "த்து"))) + dative
@@ -463,12 +471,37 @@ class CardinalFst(GraphFst):
         )
         suffixed_attach |= aa_stem + pynutil.delete("ஆ") + pynini.accep("க")
 
+        # Remaining case suffixes: the final -உ takes the vowel of the suffix, a
+        # ம்-final scale word takes the oblique -த்த- (ஐந்தால், ஆயிரத்தால்).
+        def with_vowel(sign: str, oblique: str) -> pynini.Fst:
+            return final_graph @ (
+                SIGMA + pynini.union(pynini.cross("ு", sign), pynini.cross("ம்", oblique))
+            )
+
+        # Instrumental ஆல் (also written as the vowel sign: 5ால்).
+        suffixed_attach |= with_vowel("ா", "த்தா") + pynutil.delete("ஆ") + pynini.accep("ல்")
+        suffixed_attach |= with_vowel("", "த்த") + pynini.accep("ால்")
+        # Inclusive written with the vowel sign: 5ும் -> ஐந்தும்.
+        suffixed_attach |= with_vowel("", "ம") + pynini.accep("ும்")
+        # Sociative ஓடு / உடன்.
+        suffixed_attach |= with_vowel("ோ", "த்தோ") + pynutil.delete("ஓ") + pynini.accep("டு")
+        suffixed_attach |= with_vowel("ு", "த்து") + pynutil.delete("உ") + pynini.accep("டன்")
+        # Accusative ஐ.
+        suffixed_attach |= with_vowel("ை", "த்தை") + pynutil.delete("ஐ")
+        # Genitive இன்/ன் and ablative (இ)லிருந்து.
+        optional_i = pynutil.delete(pynini.closure("இ", 0, 1))
+        suffixed_attach |= with_vowel("ி", "த்தி") + optional_i + pynini.accep("ன்")
+        suffixed_attach |= with_vowel("ி", "த்தி") + optional_i + pynini.accep("லிருந்து")
+        # Emphatic தான் simply attaches.
+        suffixed_attach |= final_graph + pynini.accep("தான்")
+
         tagged_integer = (
             self.final_graph
             | pynutil.add_weight(suffixed_locative, 0.1)
             | pynutil.add_weight(suffixed_oblique, 0.1)
             | pynutil.add_weight(suffixed_attach, 0.1)
             | pynutil.add_weight(digit_by_digit, 20.0)
+            | pynutil.add_weight(commas_digit_by_digit, 20.0)
         )
         final_graph = (
             optional_minus_graph

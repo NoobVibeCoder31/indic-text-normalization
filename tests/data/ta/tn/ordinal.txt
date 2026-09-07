@@ -10,3 +10,8 @@
 # round2-fix F12: ordinal + ஆக / க்கு
 3ஆவதாக~மூன்றாவதாக
 5வதுக்கு~ஐந்தாவதுக்கு
+# probe-fix P9: any inflected tail after வத- is carried over
+5ஆவதற்கு~ஐந்தாவதற்கு
+5ஆவதில்~ஐந்தாவதில்
+# probe-fix P9: English ordinals stay untouched (1st is not one stone)
+1st~1st
