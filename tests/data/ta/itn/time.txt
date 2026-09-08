@@ -22,6 +22,7 @@
 பத்து முப்பது மணிக்கு~10:30
 காலை பத்து மணி~காலை 10:00
 பிற்பகல் மூன்று மணி~பிற்பகல் 3:00
+# probe-fix I7: the locative/dative forms of நிமிடம்
 பத்து மணி முப்பது நிமிடத்தில்~10:30
 பத்து மணி முப்பது நிமிடத்துக்கு~10:30
 # probe-fix I7: அரை / கால் before a unit stay words, so a duration is not a clock

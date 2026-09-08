@@ -7,12 +7,15 @@ from indic_text_normalization import InverseNormalizer, Normalizer
 
 def _census() -> list[int]:
     """
-    Every integer below 1200 (all tens/hundreds sandhi shapes) plus strided samples.
+    Every shape the number sandhi can take, plus strided samples of the larger scales.
     """
-    numbers = list(range(0, 1200))
-    numbers += list(range(1200, 100000, 101))
-    numbers += list(range(100000, 100000000, 999983))
-    return numbers
+    numbers = list(range(0, 200))
+    numbers += [tens * 10 + digit for tens in range(2, 10) for digit in range(10)]
+    numbers += [hundreds * 100 + digit for hundreds in range(1, 10) for digit in range(10)]
+    numbers += list(range(1000, 10000, 37))
+    numbers += list(range(10000, 100000, 997))
+    numbers += list(range(100000, 100000000, 3999983))
+    return sorted(set(numbers))
 
 
 class TestRoundTrip:

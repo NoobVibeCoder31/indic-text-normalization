@@ -77,6 +77,7 @@
 ஒன்று சேர்~ஒன்று சேர்
 ஒன்று கூடி~ஒன்று கூடி
 எல்லாம் ஒன்று~எல்லாம் ஒன்று
+# probe-fix I1/I8: fused hundreds and thousands, and more single-word suffixes
 நூற்றொன்று~101
 ஆயிரத்தொன்று~1001
 நூறுக்கு~100க்கு
