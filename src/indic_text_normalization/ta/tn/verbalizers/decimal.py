@@ -15,7 +15,13 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.ta.constants import MINUS, NOT_QUOTE, GraphFst, insert_space
+from indic_text_normalization.ta.constants import (
+    MINUS,
+    NOT_QUOTE,
+    PLUS_WORD,
+    GraphFst,
+    insert_space,
+)
 
 
 class DecimalFst(GraphFst):
@@ -31,7 +37,13 @@ class DecimalFst(GraphFst):
 
         delete_space = pynutil.delete(" ")
         self.optional_sign = pynini.closure(
-            pynini.cross('negative: "true"', MINUS) + delete_space, 0, 1
+            (
+                pynini.cross('negative: "true"', MINUS)
+                | pynini.cross('positive: "true"', f" {PLUS_WORD} ")
+            )
+            + delete_space,
+            0,
+            1,
         )
         self.integer = (
             pynutil.delete('integer_part: "') + pynini.closure(NOT_QUOTE, 1) + pynutil.delete('"')

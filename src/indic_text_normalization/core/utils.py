@@ -27,9 +27,33 @@ def data_path(lang: str, *parts: str) -> str:
     return str(Path(str(root)) / "data" / Path(*parts))
 
 
-def load_labels(path: str) -> list[list[str]]:
+def load_labels(path: str, *, min_fields: int = 1) -> list[list[str]]:
     """
-    Load a tab-separated mapping file as a list of rows.
+    Load a tab-separated mapping file as a list of rows, skipping blank lines.
+
+    Parameters
+    ----------
+    path : ``str``
+        Absolute path to the data file.
+    min_fields : ``int``, optional (default = 1)
+        Minimum number of columns a row must have.
+
+    Returns
+    -------
+    ``list[list[str]]``
+        One list of column values per non-blank row.
+
+    Raises
+    ------
+    ``ValueError``
+        If a non-blank row has fewer than ``min_fields`` columns.
     """
+    rows = []
     with open(path, encoding="utf-8") as f:
-        return list(csv.reader(f, delimiter="\t"))
+        for line_number, row in enumerate(csv.reader(f, delimiter="\t"), start=1):
+            if not row or not row[0]:
+                continue
+            if len(row) < min_fields:
+                raise ValueError(f"{path}:{line_number} has {len(row)} of {min_fields} columns")
+            rows.append(row)
+    return rows

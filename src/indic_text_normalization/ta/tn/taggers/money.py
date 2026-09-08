@@ -15,7 +15,7 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.ta.constants import DIGIT, TA_DIGIT, GraphFst, insert_space
+from indic_text_normalization.ta.constants import CHAR, DIGIT, TA_DIGIT, GraphFst, insert_space
 from indic_text_normalization.ta.tn.taggers.cardinal import CardinalFst
 from indic_text_normalization.ta.utils import get_abs_path
 
@@ -41,7 +41,6 @@ class MoneyFst(GraphFst):
         super().__init__(name="money", kind="classify")
 
         cardinal_graph = cardinal.final_graph
-        cardinal_with_commas = cardinal_graph
 
         optional_graph_negative = pynini.closure(
             pynutil.insert("negative: ") + pynini.cross("-", '"true"') + insert_space,
@@ -51,13 +50,11 @@ class MoneyFst(GraphFst):
         currency_major = pynutil.insert('currency_maj: "') + currency_graph + pynutil.insert('"')
         optional_space = pynini.closure(pynini.accep(" "), 0, 1)
         range_amount = cardinal_graph + pynini.cross("-", " முதல் ") + cardinal_graph
+        # The amount carries -0.1, so every money branch is effectively 0.1 cheaper than
+        # the tokenizer's money weight; class arbitration is decided on that scale.
         integer = (
             pynutil.insert('integer_part: "')
-            + (
-                pynutil.add_weight(cardinal_with_commas, -0.1)
-                | cardinal_graph
-                | pynutil.add_weight(range_amount, -0.05)
-            )
+            + (pynutil.add_weight(cardinal_graph, -0.1) | pynutil.add_weight(range_amount, -0.05))
             + pynutil.insert('"')
         )
         # ₹50.5 means 50 paise: a lone fractional digit is scaled by ten before lookup.
@@ -223,7 +220,9 @@ class MoneyFst(GraphFst):
         )
 
         # ₹.50 reads as paise only (symbol currencies only: Rs./ரூ. own the dot).
-        symbol_currency = pynini.compose(pynini.union("₹", "$", "£", "€", "¥", "₩"), currency_graph)
+        # Every single-character symbol in the table, so a new row needs no edit here; the
+        # multi-character codes Rs./ரூ. are excluded because they own the dot themselves.
+        symbol_currency = pynini.compose(CHAR, currency_graph)
         currency_symbol_major = (
             pynutil.insert('currency_maj: "') + symbol_currency + pynutil.insert('"')
         )
@@ -268,7 +267,7 @@ class MoneyFst(GraphFst):
             + optional_space
             + insert_space
             + pynutil.insert('integer_part: "')
-            + (amount_with_point + pynini.closure(quantity_word, 0, 1) | cardinal_with_commas)
+            + (amount_with_point + pynini.closure(quantity_word, 0, 1) | cardinal_graph)
             + pynutil.insert('"')
             + pynutil.insert(' suffix: "')
             + case_suffix

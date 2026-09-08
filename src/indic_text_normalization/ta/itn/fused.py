@@ -17,21 +17,16 @@ QUARTER_FRACTION = {TA_KAAL: "25", TA_ARAI: "5", TA_MUKKAL: "75"}
 FRACTION_MINUTES = {"5": "30", "25": "15", "75": "45"}
 
 
-def half_form_graph(
-    fmt: Callable[[str, str], str],
-    keep: Callable[[str, str, str], bool] | None = None,
-) -> pynini.Fst:
+def half_form_rows() -> list[tuple[str, str, str]]:
     """
-    Map each fused half/quarter word to ``fmt(integer, fraction)``, keeping rows ``keep``.
+    The fused half/quarter words as ``(word, integer, fraction)`` triples.
     """
-    rows = load_labels(get_abs_path("data/numbers/itn_half_forms.tsv"))
-    if keep is not None:
-        rows = [row for row in rows if keep(*row)]
-    return pynini.union(*[pynini.cross(word, fmt(ip, fp)) for word, ip, fp in rows]).optimize()
+    rows = load_labels(get_abs_path("data/numbers/itn_half_forms.tsv"), min_fields=3)
+    return [(word, ip, fp) for word, ip, fp in rows]
 
 
 def quarter_form_graph(
-    number: pynini.Fst, prefix: str, infix: str, suffix: Callable[[str], str]
+    number: pynini.Fst, *, prefix: str, infix: str, suffix: Callable[[str], str]
 ) -> pynini.Fst:
     """
     Map an -ே linked quarter phrase (பத்தே கால், ஒன்றேகால்) to ``prefix INT infix suffix(frac)``.

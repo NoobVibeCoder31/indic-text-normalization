@@ -685,8 +685,14 @@ def generate(rows: int, seed: int) -> list[Row]:
         if produced < target:
             print(f"warning: only {produced}/{target} unique rows for {kind}", file=sys.stderr)
     top_up = [k for k in QUOTAS if k not in ("word", "mixed")]
-    while len(out) < rows:
+    # `add` returns False for a duplicate, so the unique-span space can run out; cap the
+    # attempts as the quota loop does rather than spinning forever.
+    for _ in range((rows - len(out)) * 50 + 1):
+        if len(out) >= rows:
+            break
         add(gen.rng.choice(top_up))
+    if len(out) < rows:
+        print(f"warning: only {len(out)}/{rows} unique rows after top-up", file=sys.stderr)
     gen.rng.shuffle(out)
     return out
 

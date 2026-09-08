@@ -10,7 +10,6 @@ def _census() -> list[int]:
     Every shape the number sandhi can take, plus strided samples of the larger scales.
     """
     numbers = list(range(0, 200))
-    numbers += [tens * 10 + digit for tens in range(2, 10) for digit in range(10)]
     numbers += [hundreds * 100 + digit for hundreds in range(1, 10) for digit in range(10)]
     numbers += list(range(1000, 10000, 37))
     numbers += list(range(10000, 100000, 997))
@@ -27,10 +26,12 @@ class TestRoundTrip:
         """
         No integer in the census loses its value through TN followed by ITN.
         """
+        census = _census()
         failures = []
-        for number in _census():
+        for number in census:
             written = str(number)
             spoken = ta_tn.normalize(written)
-            if ta_itn.inverse_normalize(spoken) != written:
-                failures.append((written, spoken, ta_itn.inverse_normalize(spoken)))
-        assert not failures, f"{len(failures)} of {len(_census())} failed: {failures[:15]}"
+            back = ta_itn.inverse_normalize(spoken)
+            if back != written:
+                failures.append((written, spoken, back))
+        assert not failures, f"{len(failures)} of {len(census)} failed: {failures[:15]}"

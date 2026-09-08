@@ -1,12 +1,8 @@
-import sys
-from unicodedata import category
-
 import pynini
 from pynini.examples import plurals
 from pynini.lib import pynutil
 
-from indic_text_normalization.ta.constants import NOT_SPACE, SIGMA, GraphFst
-from indic_text_normalization.ta.utils import get_abs_path
+from indic_text_normalization.ta.constants import PUNCT_UNICODE, NOT_SPACE, SIGMA, GraphFst
 
 
 class PunctuationFst(GraphFst):
@@ -23,17 +19,12 @@ class PunctuationFst(GraphFst):
         super().__init__(name="punctuation", kind="classify", deterministic=deterministic)
         s = "!#%&'()*+,-./:;<=>?@^_`{|}~\""
 
-        punct_unicode = [chr(i) for i in range(sys.maxunicode) if category(chr(i)).startswith("P")]
-
-        self.punct_marks = [p for p in punct_unicode + list(s)]
+        self.punct_marks = PUNCT_UNICODE + list(s)
 
         punct = pynini.union(*[pynini.escape(p) for p in self.punct_marks])
         punct = pynini.closure(punct, 1)
 
-        # Verbalize "=" everywhere (not only inside MathFst) using the shared math operator mapping.
-        math_operations = pynini.string_file(get_abs_path("data/math_operations.tsv"))
-        equals_spoken = pynini.union("=") @ math_operations
-        punct = plurals._priority_union(equals_spoken, punct, SIGMA)
+        # No "=" -> சமம் rewrite here: that is the TN direction. ITN must leave "=" alone.
 
         emphasis = (
             pynini.accep("<")

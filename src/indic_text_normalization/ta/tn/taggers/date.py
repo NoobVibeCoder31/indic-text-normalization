@@ -102,10 +102,22 @@ class DateFst(GraphFst):
         year_graph = tamil_year_graph | arabic_year_graph
 
         # Separators
-        delete_dash = pynutil.delete("-")
-        delete_slash = pynutil.delete("/")
-        delete_dot = pynutil.delete(".")
-        delete_separator = delete_dash | delete_slash | delete_dot
+        delete_separator = pynutil.delete(pynini.union("-", "/", "."))
+
+        # One date uses one separator throughout. That is enforced by filtering the input
+        # below rather than by building each ordering once per separator, which would
+        # triple the tagger; without it 15-06/2024 and 2024/06-15 also tag as dates.
+        not_separator = pynini.difference(CHAR, pynini.union("-", "/", "."))
+        one_separator = pynini.union(
+            *[
+                pynini.closure(not_separator)
+                + separator
+                + pynini.closure(not_separator)
+                + separator
+                + pynini.closure(not_separator)
+                for separator in ("-", "/", ".")
+            ]
+        ).optimize()
 
         # Build date components with labels
         day_component = pynutil.insert('day: "') + days_graph + pynutil.insert('"')
@@ -136,51 +148,43 @@ class DateFst(GraphFst):
             + pynutil.insert('"')
         )
 
+        def joined(first: pynini.Fst, second: pynini.Fst, third: pynini.Fst) -> pynini.Fst:
+            """
+            Join three date components with a separator between each pair.
+            """
+            return (
+                first
+                + insert_space
+                + delete_separator
+                + second
+                + insert_space
+                + delete_separator
+                + third
+            )
+
         # DD-MM-YYYY format (common in India)
-        graph_dd_mm_yyyy = (
-            day_component
-            + insert_space
-            + delete_separator
-            + month_component
-            + insert_space
-            + delete_separator
-            + year_component
-        )
+        graph_dd_mm_yyyy = joined(day_component, month_component, year_component)
 
         # MM-DD-YYYY format
-        graph_mm_dd_yyyy = (
-            month_component
-            + insert_space
-            + delete_separator
-            + day_component
-            + insert_space
-            + delete_separator
-            + year_component
-            + pynutil.insert(" preserve_order: true")
+        graph_mm_dd_yyyy = joined(month_component, day_component, year_component) + pynutil.insert(
+            " preserve_order: true"
         )
 
         # YYYY-MM-DD format (ISO format)
-        graph_yyyy_mm_dd = (
-            year_component
-            + insert_space
-            + delete_separator
-            + month_component
-            + insert_space
-            + delete_separator
-            + day_component
-        )
+        graph_yyyy_mm_dd = joined(year_component, month_component, day_component)
 
         # Year suffix (A.D., B.C., etc.)
         era_graph = pynutil.insert('era: "') + year_suffix + pynutil.insert('"')
 
         # Numeric dates require all three components with a 4-digit year; bare
         # MM-DD / MM-YY shapes are dropped so ranges like 10-20 stay cardinals.
-        final_graph = (
+        numeric_dates = pynini.compose(
+            one_separator,
             pynutil.add_weight(graph_dd_mm_yyyy, -0.001)  # Prefer DD-MM-YYYY
             | pynutil.add_weight(graph_yyyy_mm_dd, -0.001)  # ISO format
-            | graph_mm_dd_yyyy
-            | pynutil.add_weight(era_graph, -0.001)
+            | graph_mm_dd_yyyy,
         )
+        final_graph = numeric_dates | pynutil.add_weight(era_graph, -0.001)
 
         self.final_graph = final_graph.optimize()
         self.fst = self.add_tokens(self.final_graph)

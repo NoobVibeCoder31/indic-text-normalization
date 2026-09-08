@@ -427,9 +427,12 @@ class CardinalFst(GraphFst):
             pynini.union(raw_final_graph, final_graph) @ not_leading_zero
         ).optimize()
 
-        # Handle negative numbers
-        optional_minus_graph = pynini.closure(
-            pynutil.insert("negative: ") + pynini.cross("-", '"true" '), 0, 1
+        # A sign is a field, so the verbalizer renders it and ITN can invert it.
+        optional_sign_graph = pynini.closure(
+            pynutil.insert("negative: ") + pynini.cross("-", '"true" ')
+            | pynutil.insert("positive: ") + pynini.cross("+", '"true" '),
+            0,
+            1,
         )
 
         self.final_graph = final_graph
@@ -515,7 +518,7 @@ class CardinalFst(GraphFst):
             | pynutil.add_weight(commas_digit_by_digit, 20.0)
         )
         final_graph = (
-            optional_minus_graph
+            optional_sign_graph
             + pynutil.insert('integer: "')
             + tagged_integer
             + pynutil.insert('"')

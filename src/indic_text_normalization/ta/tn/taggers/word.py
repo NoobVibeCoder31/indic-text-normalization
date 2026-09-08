@@ -19,6 +19,7 @@ from indic_text_normalization.ta.constants import (
     ALPHA,
     MIN_NEG_WEIGHT,
     NOT_SPACE,
+    TA_BLOCK,
     GraphFst,
     convert_space,
 )
@@ -39,18 +40,15 @@ class WordFst(GraphFst):
     def __init__(self, punctuation: PunctuationFst, deterministic: bool = True):
         super().__init__(name="word", kind="classify", deterministic=deterministic)
 
-        # Define Tamil characters and symbols using pynini.union
-        TAMIL_CHAR = pynini.union(
-            *[chr(i) for i in range(0x0B80, 0x0BFF + 1)],  # Tamil characters
-        ).optimize()
-
         # Include punctuation in the graph
-        punct = punctuation.graph
-        default_graph = pynini.closure(pynini.difference(NOT_SPACE, punct.project("input")), 1)
+        # pynini.Fst.project mutates in place and returns self, so project a copy:
+        # punctuation.graph is shared with the tokenizer, which needs it unprojected.
+        punct = punctuation.graph.copy().project("input").optimize()
+        default_graph = pynini.closure(pynini.difference(NOT_SPACE, punct), 1)
         symbols_to_exclude = (pynini.union("$", "€", "₩", "£", "¥", "#", "%") | punct).optimize()
 
         # Use TAMIL_CHAR in the graph
-        graph = pynini.closure(pynini.difference(TAMIL_CHAR, symbols_to_exclude), 1)
+        graph = pynini.closure(pynini.difference(TA_BLOCK, symbols_to_exclude), 1)
         graph = pynutil.add_weight(graph, MIN_NEG_WEIGHT) | default_graph
 
         # URLs stay whole instead of being split into punctuation tokens.

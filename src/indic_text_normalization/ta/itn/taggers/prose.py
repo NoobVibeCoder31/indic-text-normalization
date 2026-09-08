@@ -6,7 +6,7 @@ import pynini
 from pynini.lib import pynutil
 
 from indic_text_normalization.core.utils import load_labels
-from indic_text_normalization.ta.constants import TA_BLOCK, TA_DIGIT, GraphFst, convert_space
+from indic_text_normalization.ta.constants import TA_LETTER, GraphFst, convert_space
 from indic_text_normalization.ta.utils import get_abs_path
 
 
@@ -28,7 +28,7 @@ class ProseFst(GraphFst):
 
         # An ambiguous word reads as a fraction only on its own; any Tamil word after it
         # (கால் வலிக்கிறது, அரை நிஜார்) makes the word reading the right one.
-        tamil_word = pynini.closure(pynini.difference(TA_BLOCK, TA_DIGIT), 1)
+        tamil_word = pynini.closure(TA_LETTER, 1)
         followed = pynini.union(*ambiguous) + pynini.accep(" ") + tamil_word
 
         graph = convert_space(pynini.union(*phrases) | followed)

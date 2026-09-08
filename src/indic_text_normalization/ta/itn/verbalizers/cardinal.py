@@ -17,7 +17,12 @@ class CardinalFst(GraphFst):
     def __init__(self, deterministic: bool = True) -> None:
         super().__init__(name="cardinal", kind="verbalize", deterministic=deterministic)
 
-        optional_sign = pynini.closure(pynini.cross('negative: "true"', "-") + delete_space, 0, 1)
+        optional_sign = pynini.closure(
+            (pynini.cross('negative: "true"', "-") | pynini.cross('positive: "true"', "+"))
+            + delete_space,
+            0,
+            1,
+        )
         integer = pynutil.delete('integer: "') + pynini.closure(NOT_QUOTE, 1) + pynutil.delete('"')
 
         self.graph = optional_sign + integer

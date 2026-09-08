@@ -116,8 +116,12 @@ class DecimalFst(GraphFst):
         # Decimal separator
         point = pynutil.delete(".")
 
-        optional_graph_negative = pynini.closure(
-            pynutil.insert("negative: ") + pynini.cross("-", '"true"') + insert_space,
+        optional_graph_sign = pynini.closure(
+            (
+                pynutil.insert("negative: ") + pynini.cross("-", '"true"')
+                | pynutil.insert("positive: ") + pynini.cross("+", '"true"')
+            )
+            + insert_space,
             0,
             1,
         )
@@ -155,7 +159,7 @@ class DecimalFst(GraphFst):
             final_graph_wo_sign, integer_graph
         )
 
-        final_graph = optional_graph_negative + self.final_graph_wo_negative
+        final_graph = optional_graph_sign + self.final_graph_wo_negative
 
         final_graph = self.add_tokens(final_graph)
         self.fst = final_graph.optimize()

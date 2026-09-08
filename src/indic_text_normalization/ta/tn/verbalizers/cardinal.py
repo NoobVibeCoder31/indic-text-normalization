@@ -15,7 +15,13 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.ta.constants import NOT_QUOTE, GraphFst, delete_space
+from indic_text_normalization.ta.constants import (
+    MINUS_WORD,
+    NOT_QUOTE,
+    PLUS_WORD,
+    GraphFst,
+    delete_space,
+)
 
 
 class CardinalFst(GraphFst):
@@ -31,7 +37,9 @@ class CardinalFst(GraphFst):
     def __init__(self, deterministic: bool = True):
         super().__init__(name="cardinal", kind="verbalize", deterministic=deterministic)
 
-        self.optional_sign = pynini.cross('negative: "true"', "மைனஸ் ")
+        self.optional_sign = pynini.cross('negative: "true"', f"{MINUS_WORD} ") | pynini.cross(
+            'positive: "true"', f"{PLUS_WORD} "
+        )
         if not deterministic:
             self.optional_sign |= pynini.cross('negative: "true"', "negative ")
             self.optional_sign |= pynini.cross('negative: "true"', "dash ")

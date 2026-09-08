@@ -113,3 +113,13 @@ order 66 confirmed~order அறுபத்தாறு confirmed
 10>5~பத்து விட அதிகம் ஐந்து
 5 < 10~ஐந்து விடக் குறைவு பத்து
 <b>5</b>~<b> ஐந்து </b>
+# probe-fix P20: a leading + is a sign (பிளஸ்); a lone + is punctuation, like a lone -,
+# so a second pass cannot turn it into கூட்டல். Between two digits it is the operator.
++5~பிளஸ் ஐந்து
++000~பிளஸ் பூஜ்யம் பூஜ்யம் பூஜ்யம்
++007~பிளஸ் பூஜ்யம் பூஜ்யம் ஏழு
++50ல்~பிளஸ் ஐம்பதில்
++~+
++ 5~+ ஐந்து
+5+3+2~ஐந்து கூட்டல் மூன்று கூட்டல் இரண்டு
+1+2=3~ஒன்று கூட்டல் இரண்டு சமம் மூன்று

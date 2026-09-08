@@ -151,10 +151,16 @@ class ClassifyFst(GraphFst):
                 pynutil.insert(" "), "+", pynini.difference(NOT_SPACE, any_digit), SIGMA
             )
         )
-        # "<" and ">" are markup except between two digits, where they are comparisons.
+        # "<" and ">" are markup except between two digits, where they are infix_operatorss.
+        # "+" is the same: an operator between two digits, otherwise punctuation. Speaking
+        # a lone "+" would break idempotency on the second pass, as a lone "-" once did.
         spaces = pynini.closure(" ")
-        comparison = pynini.cdrewrite(
-            pynini.union(pynini.cross("<", " விடக் குறைவு "), pynini.cross(">", " விட அதிகம் ")),
+        infix_operators = pynini.cdrewrite(
+            pynini.union(
+                pynini.cross("<", " விடக் குறைவு "),
+                pynini.cross(">", " விட அதிகம் "),
+                pynini.cross("+", " கூட்டல் "),
+            ),
             any_digit + spaces,
             spaces + any_digit,
             SIGMA,
@@ -241,7 +247,7 @@ class ClassifyFst(GraphFst):
             @ percent_suffix
             @ percent_word
             @ subtraction_minus
-            @ comparison
+            @ infix_operators
             @ space_after_digit
             @ space_before_digit
             @ split_symbol

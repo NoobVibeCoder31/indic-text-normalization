@@ -335,9 +335,12 @@ def date(text: str) -> str:
     Verbalize numeric dates: DD-MM-YYYY, MM-DD-YYYY (day > 12), YYYY-MM-DD; sep ``-/.``.
     """
     t = tables()
-    parts = re.split(r"[-/.]", to_ascii_digits(text))
-    if len(parts) != 3:
+    # One date uses one separator throughout, as the grammar requires: 15-06/2024 is not
+    # a date, and the reference has no reading for the mixed shape.
+    shape = re.fullmatch(r"(\d+)([-/.])(\d+)\2(\d+)", to_ascii_digits(text))
+    if shape is None:
         raise ValueError(f"unsupported date shape: {text!r}")
+    parts = [shape.group(1), shape.group(3), shape.group(4)]
     year_first = len(parts[0]) == 4
     year, first, second = parts if year_first else (parts[2], parts[0], parts[1])
     if len(year) != 4:

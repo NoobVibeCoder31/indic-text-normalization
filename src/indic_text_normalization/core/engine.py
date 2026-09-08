@@ -81,7 +81,6 @@ class NormalizationEngine:
     def __init__(self, classify: pynini.Fst, verbalize: pynini.Fst) -> None:
         self.classify = classify
         self.verbalize = verbalize
-        self.parser = TokenParser()
 
     def normalize(self, text: str) -> str:
         """
@@ -102,9 +101,11 @@ class NormalizationEngine:
             logger.warning("Failed to tag text: %s", text)
             return text
 
-        self.parser(tagged_text)
-        tokens = self.parser.parse()
         try:
+            # Per-call: TokenParser holds mutable cursor state, so sharing it is not thread-safe.
+            parser = TokenParser()
+            parser(tagged_text)
+            tokens = parser.parse()
             output = self._verbalize(tokens, tagged_text)
         except Exception:
             logger.warning("Failed to verbalize text: %s", text)

@@ -20,6 +20,9 @@ Script-agnostic FST building blocks shared by every language package.
 import logging
 import string
 
+import sys
+from unicodedata import category
+
 import pynini
 from pynini.export import export
 from pynini.lib import byte, pynutil, utf8
@@ -54,6 +57,10 @@ delete_preserve_order = pynini.closure(
     | (pynutil.delete(' field_order: "') + NOT_QUOTE + pynutil.delete('"'))
 )
 
+# Every Unicode punctuation code point. ~1.1 M category lookups, so computed once and
+# shared by the TN and ITN punctuation taggers rather than once per module.
+PUNCT_UNICODE = [chr(i) for i in range(sys.maxunicode + 1) if category(chr(i)).startswith("P")]
+
 MIN_NEG_WEIGHT = -0.0001
 MIN_POS_WEIGHT = 0.0001
 
@@ -71,7 +78,8 @@ def generator_main(file_name: str, graphs: dict[str, pynini.Fst]) -> None:
     """
     exporter = export.Exporter(file_name)
     for rule, graph in graphs.items():
-        exporter[rule] = graph.optimize()
+        # Callers own optimization; re-optimizing here repeats it on the whole grammar.
+        exporter[rule] = graph
     exporter.close()
     logging.info("Created %s", file_name)
 

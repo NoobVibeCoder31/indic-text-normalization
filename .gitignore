@@ -20,3 +20,4 @@ build/
 # Benchmark artefacts
 benchmarks/reports/
 benchmarks/.far_cache/
+temp/

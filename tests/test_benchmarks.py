@@ -29,6 +29,11 @@ from indic_text_normalization import Normalizer
 from .conftest import load_golden
 
 BENCHMARK_CSV = Path(__file__).parent.parent / "benchmarks" / "ta_tn_benchmark.csv"
+# The dataset is generated, not committed (2 MB; CLAUDE.md requires discussion before
+# committing test data over 1 MB). Regenerate with benchmarks/generate_ta_tn.py.
+requires_benchmark = pytest.mark.skipif(
+    not BENCHMARK_CSV.exists(), reason=f"{BENCHMARK_CSV.name} not generated"
+)
 ALLOWED_TYPES = set(QUOTAS)
 
 GOLDEN_SHAPES = {
@@ -108,6 +113,7 @@ class TestReference:
         assert first == second
 
 
+@requires_benchmark
 class TestDataset:
     """
     Integrity checks for ``benchmarks/ta_tn_benchmark.csv``.
@@ -197,6 +203,7 @@ class TestRunner:
         report = evaluate([Row(1, "5", ("ஐந்து",), "cardinal")], [])
         assert report.errors == 1
 
+    @requires_benchmark
     def test_run_chunk_with_engine(self, ta_tn: Normalizer) -> None:
         """
         Real engine over the first benchmark rows produces the expected outputs.

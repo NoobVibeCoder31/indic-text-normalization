@@ -2,7 +2,9 @@
 Engine-level regression tests: verbalization cost, pre-cleaning and output spacing.
 """
 
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 from indic_text_normalization import Normalizer
 
@@ -30,6 +32,28 @@ class TestEngine:
             output = ta_tn.normalize(text)
             assert " " not in output
             assert ta_tn.normalize(output) == output
+
+    def test_normalize_is_thread_safe(self, ta_tn: Normalizer) -> None:
+        """
+        Concurrent normalize() calls on one instance must not corrupt each other.
+        """
+        cases = {
+            "5 65 மற்றும் 70": "ஐந்து அறுபத்தைந்து மற்றும் எழுபது",
+            "₹1,250.50": "ஆயிரத்து இருநூற்று ஐம்பது ரூபாய் ஐம்பது பைசா",
+            "15-06-2024": "பதினைந்து ஜூன் இரண்டாயிரத்து இருபத்துநான்கு",
+        }
+        items = list(cases.items())
+        barrier = threading.Barrier(8)
+
+        def work(i: int) -> None:
+            for round_ in range(50):
+                barrier.wait()
+                text, expected = items[(i + round_) % len(items)]
+                assert ta_tn.normalize(text) == expected
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            for future in [pool.submit(work, i) for i in range(8)]:
+                future.result()
 
     def test_zero_width_characters(self, ta_tn: Normalizer) -> None:
         """

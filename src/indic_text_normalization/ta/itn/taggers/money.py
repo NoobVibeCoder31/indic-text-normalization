@@ -6,7 +6,7 @@ import pynini
 from pynini.lib import pynutil
 
 from indic_text_normalization.ta.constants import DIGIT, GraphFst, delete_space
-from indic_text_normalization.ta.itn.fused import half_form_graph, quarter_form_graph
+from indic_text_normalization.ta.itn.fused import half_form_rows, quarter_form_graph
 from indic_text_normalization.ta.itn.taggers.cardinal import CardinalFst
 from indic_text_normalization.ta.itn.taggers.decimal import QUANTITY_WORDS
 from indic_text_normalization.ta.utils import get_abs_path
@@ -62,8 +62,8 @@ class MoneyFst(GraphFst):
         amount_digits = pynini.union(
             short,
             short + pynini.cross(" புள்ளி ", ".") + short,
-            half_form_graph(lambda ip, fp: f"{ip}.{fp}"),
-            quarter_form_graph(number, "", ".", lambda fraction: fraction),
+            pynini.union(*[pynini.cross(word, f"{ip}.{fp}") for word, ip, fp in half_form_rows()]),
+            quarter_form_graph(short, prefix="", infix=".", suffix=lambda fraction: fraction),
         )
         quantity_amount = (
             pynutil.insert('integer_part: "')

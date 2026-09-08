@@ -8,3 +8,7 @@ hello world~hello world
 # probe-fix I-P1: brackets and quotes no longer block the number inside them
 [ஐந்து]~[ 5 ]
 "ஐந்து"~" 5 "
+# review-fix R1: "=" is a TN rewrite; ITN must leave it alone (was 5 சமம் 5)
+5 = 5~5 = 5
+5=5~5 = 5
+a = b~a = b

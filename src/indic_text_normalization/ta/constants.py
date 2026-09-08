@@ -35,6 +35,9 @@ from indic_text_normalization.core.graph_utils import (
     NOT_QUOTE as NOT_QUOTE,
 )
 from indic_text_normalization.core.graph_utils import (
+    PUNCT_UNICODE as PUNCT_UNICODE,
+)
+from indic_text_normalization.core.graph_utils import (
     NOT_SPACE as NOT_SPACE,
 )
 from indic_text_normalization.core.graph_utils import (
@@ -88,12 +91,15 @@ ASCII_TO_TA_DIGIT = _TA_DIGITS.from_ascii
 
 # Tamil block U+0B80-U+0BFF, used for context-dependent rewrites.
 TA_BLOCK = pynini.union(*[chr(i) for i in range(0x0B80, 0x0C00)]).optimize()
+# The letters and vowel signs of the block, i.e. everything but the Tamil digits.
+TA_LETTER = pynini.difference(TA_BLOCK, TA_DIGIT).optimize()
 
 INPUT_CASED = "cased"
 INPUT_LOWER_CASED = "lower_cased"
 
 MINUS_WORD = "மைனஸ்"
 MINUS = pynini.union(" மைனஸ் ").optimize()
+PLUS_WORD = "பிளஸ்"
 
 # Fractional-hour words used by the time grammar.
 TA_KAAL = "கால்"

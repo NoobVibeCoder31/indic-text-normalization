@@ -9,7 +9,7 @@ Tamil is supported today; Malayalam, Telugu, Kannada, and Hindi are planned.
 
 ## What it does
 
-- **TN (written → spoken)** for TTS pipelines: `₹1,250.50` → `ஒன்று ஆயிரம் இருநூற்று ஐம்பது ரூபாய் ஐம்பது பைசா`
+- **TN (written → spoken)** for TTS pipelines: `₹1,250.50` → `ஆயிரத்து இருநூற்று ஐம்பது ரூபாய் ஐம்பது பைசா`
 - **ITN (spoken → written)** for ASR output: `இருபத்துமூன்று பேர் வந்தனர்` → `23 பேர் வந்தனர்`
 
 Semiotic classes: cardinal, ordinal, decimal, fraction, date, time, money, telephone,
@@ -31,7 +31,7 @@ from indic_text_normalization import Normalizer, InverseNormalizer
 
 tn = Normalizer(lang="ta")
 tn.normalize("10:30")            # பத்து மணி முப்பது நிமிடம்
-tn.normalize("15-06-2024")       # பதினைந்து ஜூன் இரண்டு ஆயிரம் இருபத்துநான்கு
+tn.normalize("15-06-2024")       # பதினைந்து ஜூன் இரண்டாயிரத்து இருபத்துநான்கு
 
 itn = InverseNormalizer(lang="ta")
 itn.inverse_normalize("பத்து மணி முப்பது நிமிடம்")   # 10:30

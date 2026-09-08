@@ -5,7 +5,7 @@ ITN tagger converting spoken Tamil dates to digit form.
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.ta.constants import GraphFst, delete_space
+from indic_text_normalization.ta.constants import DIGIT, TA_LETTER, GraphFst, delete_space
 from indic_text_normalization.ta.itn.taggers.cardinal import CardinalFst
 from indic_text_normalization.ta.utils import get_abs_path
 
@@ -25,11 +25,16 @@ class DateFst(GraphFst):
             pynini.string_file(get_abs_path("data/date/months.tsv")), "output"
         ).optimize()
 
-        day = pynutil.insert('day: "') + cardinal.words_to_digits + pynutil.insert('"')
+        # A day is 1-31 and a year at most four digits. Range-binding them keeps the
+        # tagger small and stops ஐந்நூறு ஜூன் reading as day 500.
+        day_value = cardinal.words_to_digits @ pynini.union(*[str(d) for d in range(1, 32)])
+        year_digits = pynini.closure(DIGIT, 1, 4)
+        day = pynutil.insert('day: "') + day_value + pynutil.insert('"')
         month = pynutil.insert('month: "') + month_names + pynutil.insert('"')
         # A case suffix on the year is carried to the digits: ... இருபத்துநான்கில் -> 2024ல்.
-        year_value = cardinal.words_to_digits | pynutil.add_weight(
-            cardinal.suffixed_words_to_digits, 0.05
+        year_value = (cardinal.words_to_digits @ year_digits) | pynutil.add_weight(
+            cardinal.suffixed_words_to_digits @ (year_digits + pynini.closure(TA_LETTER, 1)),
+            0.05,
         )
         year = pynutil.insert('year: "') + year_value + pynutil.insert('"')
 

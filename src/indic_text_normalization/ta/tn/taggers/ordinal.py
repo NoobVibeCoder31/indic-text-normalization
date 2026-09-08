@@ -15,7 +15,7 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.ta.constants import CHAR, TA_BLOCK, TA_DIGIT, GraphFst
+from indic_text_normalization.ta.constants import CHAR, TA_LETTER, GraphFst
 from indic_text_normalization.ta.tn.taggers.cardinal import CardinalFst
 
 
@@ -42,11 +42,10 @@ class OrdinalFst(GraphFst):
         suffix_aam = pynutil.delete("ஆம்") + pynutil.insert("ம்")
         # Any inflected tail after வத- is carried over: 3ஆவதாக -> மூன்றாவதாக,
         # 5வதுக்கு -> ஐந்தாவதுக்கு, 5ஆவதற்கு -> ஐந்தாவதற்கு, 5ஆவதில் -> ஐந்தாவதில்.
-        ta_letter = pynini.difference(TA_BLOCK, TA_DIGIT)
         suffix_tail = (
             pynutil.delete(pynini.closure("ஆ", 0, 1))
             + pynini.accep("வத")
-            + pynini.closure(ta_letter, 1)
+            + pynini.closure(TA_LETTER, 1)
         )
 
         graph = stem + pynini.union(suffix_vathu, suffix_aam, suffix_tail)

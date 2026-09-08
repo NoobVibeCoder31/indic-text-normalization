@@ -5,7 +5,7 @@ ITN tagger converting spoken Tamil ordinals to digits with an ordinal suffix.
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.ta.constants import CHAR, TA_BLOCK, TA_DIGIT, GraphFst
+from indic_text_normalization.ta.constants import CHAR, TA_LETTER, GraphFst
 from indic_text_normalization.ta.itn.taggers.cardinal import CardinalFst
 
 
@@ -31,12 +31,11 @@ class OrdinalFst(GraphFst):
         integer = pynutil.insert('integer: "') + stem + pynutil.insert('"')
 
         # -வது plus any inflected tail: ஐந்தாவது -> 5வது, ஐந்தாவதுக்கு -> 5வதுக்கு.
-        ta_letter = pynini.difference(TA_BLOCK, TA_DIGIT)
         graph_vathu = (
             integer
             + pynutil.insert(' morphosyntactic_features: "')
             + pynini.accep("வத")
-            + pynini.closure(ta_letter, 1)
+            + pynini.closure(TA_LETTER, 1)
             + pynutil.insert('"')
         )
         graph_aam = (
