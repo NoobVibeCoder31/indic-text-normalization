@@ -5,10 +5,13 @@ ITN tagger converting spoken Tamil decimals to digits.
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.ta.constants import GraphFst, delete_space, insert_space
+from indic_text_normalization.ta.constants import DIGIT, GraphFst, delete_space, insert_space
+from indic_text_normalization.ta.itn.fused import half_form_graph, quarter_form_graph
 from indic_text_normalization.ta.itn.taggers.cardinal import CardinalFst
-from indic_text_normalization.ta.utils import get_abs_path
-from indic_text_normalization.core.utils import load_labels
+
+# Scale words kept in the written form after a decimal amount (5.5 லட்சம்); ஆயிரம் is
+# absent because the cardinal grammar expands it (ஐந்து புள்ளி ஐந்து ஆயிரம் -> 5500).
+QUANTITY_WORDS = ["கோடி", "இலட்சம்", "லட்சம்", "மில்லியன்", "பில்லியன்", "டிரில்லியன்"]
 
 
 class DecimalFst(GraphFst):
@@ -21,56 +24,55 @@ class DecimalFst(GraphFst):
     def __init__(self, cardinal: CardinalFst, deterministic: bool = True) -> None:
         super().__init__(name="decimal", kind="classify", deterministic=deterministic)
 
-        digit_by_digit = cardinal.words_to_digits + pynini.closure(
-            delete_space + cardinal.words_to_digits
-        )
+        # A fractional piece is a single small number or a digit; bounding it to three
+        # digits keeps a following scale word out of the fraction (ஐந்து புள்ளி ஐந்து லட்சம்
+        # must not read as 5.500000).
+        small = (cardinal.words_to_digits @ pynini.closure(DIGIT, 1, 3)).optimize()
+        digit_by_digit = small + pynini.closure(delete_space + small)
 
         integer_part = (
             pynutil.insert('integer_part: "') + cardinal.words_to_digits + pynutil.insert('"')
         )
+        # Dotted chains round-trip too: ஒன்று புள்ளி இரண்டு புள்ளி மூன்று -> 1.2.3.
         fractional_part = (
-            pynutil.insert('fractional_part: "') + digit_by_digit + pynutil.insert('"')
+            pynutil.insert('fractional_part: "')
+            + digit_by_digit
+            + pynini.closure(pynini.cross(" புள்ளி ", ".") + digit_by_digit)
+            + pynutil.insert('"')
         )
 
         optional_minus = pynini.closure(
             pynutil.insert("negative: ") + pynini.cross("மைனஸ் ", '"true" '), 0, 1
         )
+        delete_point = delete_space + pynutil.delete("புள்ளி") + delete_space
 
-        graph = (
-            optional_minus
-            + integer_part
-            + delete_space
-            + pynutil.delete("புள்ளி")
-            + delete_space
-            + insert_space
-            + fractional_part
-        )
+        graph = optional_minus + integer_part + delete_point + insert_space + fractional_part
 
-        # Dotted chains round-trip: ஒன்று புள்ளி இரண்டு புள்ளி மூன்று -> 1.2.3.
-        chain_fraction = (
-            pynutil.insert('fractional_part: "')
-            + digit_by_digit
-            + pynini.closure(pynini.cross(" புள்ளி ", ".") + digit_by_digit, 1)
+        # A trailing scale word keeps the written idiom (ஐந்து புள்ளி ஐந்து லட்சம் -> 5.5 லட்சம்)
+        # instead of being multiplied into the fractional digits.
+        short_fraction = pynutil.insert('fractional_part: "') + small + pynutil.insert('"')
+        quantity = (
+            pynutil.insert(' quantity: "')
+            + pynutil.delete(" ")
+            + pynini.union(*QUANTITY_WORDS)
             + pynutil.insert('"')
         )
         graph |= pynutil.add_weight(
-            optional_minus
-            + integer_part
-            + delete_space
-            + pynutil.delete("புள்ளி")
-            + delete_space
-            + insert_space
-            + chain_fraction,
-            -0.1,
+            optional_minus + integer_part + delete_point + insert_space + short_fraction + quantity,
+            -0.2,
         )
 
         # Fused fractional words: ஒன்றரை -> 1.5, கால் -> 0.25, முக்கால் -> 0.75.
-        half_forms = pynini.union(
-            *[
-                pynini.cross(word, f'integer_part: "{ip}" fractional_part: "{fp}"')
-                for word, ip, fp in load_labels(get_abs_path("data/numbers/itn_half_forms.tsv"))
-            ]
+        self.half_forms = half_form_graph(
+            lambda ip, fp: f'integer_part: "{ip}" fractional_part: "{fp}"'
         )
-        graph |= half_forms
+        # ே-linked quarter phrases: பத்தே கால் -> 10.25, ஒன்றேமுக்கால் -> 1.75.
+        self.quarter_forms = quarter_form_graph(
+            cardinal.words_to_digits,
+            'integer_part: "',
+            '"',
+            lambda fraction: f' fractional_part: "{fraction}"',
+        )
+        graph |= self.half_forms | self.quarter_forms
 
         self.fst = self.add_tokens(graph).optimize()

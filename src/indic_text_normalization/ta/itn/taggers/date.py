@@ -27,7 +27,11 @@ class DateFst(GraphFst):
 
         day = pynutil.insert('day: "') + cardinal.words_to_digits + pynutil.insert('"')
         month = pynutil.insert('month: "') + month_names + pynutil.insert('"')
-        year = pynutil.insert('year: "') + cardinal.words_to_digits + pynutil.insert('"')
+        # A case suffix on the year is carried to the digits: ... இருபத்துநான்கில் -> 2024ல்.
+        year_value = cardinal.words_to_digits | pynutil.add_weight(
+            cardinal.suffixed_words_to_digits, 0.05
+        )
+        year = pynutil.insert('year: "') + year_value + pynutil.insert('"')
 
         graph_dmy = (
             day

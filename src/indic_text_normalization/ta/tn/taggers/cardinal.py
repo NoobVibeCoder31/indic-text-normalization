@@ -416,10 +416,16 @@ class CardinalFst(GraphFst):
         strip_leading = pynini.cdrewrite(pynutil.delete(pynini.closure(" ", 1)), "[BOS]", "", SIGMA)
         final_graph = (final_graph @ squeeze @ strip_leading).optimize()
 
-        # ITN accepts both the styled forms and the plain spaced forms.
+        # ITN accepts both the styled forms and the plain spaced forms, minus the
+        # leading-zero pair: ITN must read பூஜ்யம் ஒன்று as the digit run 0 1, not 01.
         raw_final_graph = final_graph
         final_graph = (final_graph @ style).optimize()
-        self.itn_input_graph = pynini.union(raw_final_graph, final_graph).optimize()
+        not_leading_zero = pynini.difference(
+            pynini.closure(CHAR), pynini.accep("பூஜ்யம் ") + pynini.closure(CHAR)
+        )
+        self.itn_input_graph = (
+            pynini.union(raw_final_graph, final_graph) @ not_leading_zero
+        ).optimize()
 
         # Handle negative numbers
         optional_minus_graph = pynini.closure(
@@ -494,6 +500,11 @@ class CardinalFst(GraphFst):
         suffixed_attach |= with_vowel("ி", "த்தி") + optional_i + pynini.accep("லிருந்து")
         # Emphatic தான் simply attaches.
         suffixed_attach |= final_graph + pynini.accep("தான்")
+
+        # ITN inverts this union to recover 2024ல் from இரண்டாயிரத்து இருபத்துநான்கில்.
+        self.itn_suffixed_graph = pynini.union(
+            suffixed_locative, suffixed_oblique, suffixed_attach
+        ).optimize()
 
         tagged_integer = (
             self.final_graph

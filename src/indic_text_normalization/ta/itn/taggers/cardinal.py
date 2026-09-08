@@ -5,10 +5,13 @@ ITN tagger converting spoken Tamil numbers to ASCII digits.
 import pynini
 from pynini.lib import pynutil
 
+from indic_text_normalization.core.utils import load_labels
 from indic_text_normalization.ta.constants import (
     CHAR,
     DIGIT,
     SIGMA,
+    TA_BLOCK,
+    TA_DIGIT,
     TA_TO_ASCII_DIGIT,
     GraphFst,
 )
@@ -28,6 +31,9 @@ _COLLOQUIAL = [
     ("பன்னிரெண்டு", "பன்னிரண்டு"),
     ("அம்பது", "ஐம்பது"),
     ("ஐநூறு", "ஐந்நூறு"),
+    # U+0BA9 TAMIL LETTER NNA spelling of 300 (முந்நூறு is the grammar's form).
+    ("முன்னூறு", "முந்நூறு"),
+    ("முன்னூற்று", "முந்நூற்று"),
 ]
 
 # Colloquial/formal -த்தி tens joints normalized to the -த்து stems.
@@ -47,6 +53,7 @@ _TENS_JOINTS = [
     ("நூத்தி", "நூற்று"),
     ("இருநூத்தி", "இருநூற்று"),
     ("முன்னூத்தி", "முந்நூற்று"),
+    ("முன்னூற்றி", "முந்நூற்று"),
     ("ஆயிரத்தி", "ஆயிரத்து"),
     ("ரெண்டாயிர", "இரண்டாயிர"),
     ("மூணாயிர", "மூன்றாயிர"),
@@ -64,6 +71,13 @@ _TENS_STEMS = [
 ]
 
 _DIGIT_WORDS = ["ஒன்று", "இரண்டு", "மூன்று", "நான்கு", "ஐந்து", "ஆறு", "ஏழு", "எட்டு", "ஒன்பது"]
+
+
+def _unweighted(fst: pynini.Fst) -> pynini.Fst:
+    """
+    Drop every arc weight, so only the ITN grammar's own weights rank a reading.
+    """
+    return pynini.arcmap(fst.optimize(), map_type="rmweight").optimize()
 
 
 def _boundary_rewrite(pairs: list[tuple[str, str]]) -> pynini.Fst:
@@ -93,6 +107,7 @@ def _spoken_pre_map() -> pynini.Fst:
             ("லட்சம்", "இலட்சம்"),
             ("ஓராயிரம்", "ஆயிரம்"),
             ("ஓர் ஆயிரம்", "ஆயிரம்"),
+            ("ஒரு ஆயிரம்", "ஆயிரம்"),
         ]
     )
     # Fused thousands split back to the spaced reading: அறுபதாயிரம் -> அறுபது ஆயிரம்.
@@ -131,6 +146,43 @@ def _spoken_pre_map() -> pynini.Fst:
     ).optimize()
 
 
+def _hundreds_split() -> pynini.Fst:
+    """
+    Split the spoken hundreds sandhi back into the spaced form: நூற்றிரண்டு -> நூற்று இரண்டு.
+    """
+    signs = ["ி", "ொ", "ெ", "ே", "ை", "ா"]
+    vowels = ["இ", "ஒ", "எ", "ஏ", "ஐ", "ஆ"]
+    stems = pynini.union("நூற்ற", "ஆயிரத்த")
+    unmerge = pynini.union(*[pynini.cross(s, f"ு {v}") for s, v in zip(signs, vowels, strict=True)])
+    rewrite = pynini.cdrewrite(unmerge, stems, "", SIGMA)
+    # Restricted to strings that actually carry the sandhi, so this second reading of
+    # the input costs a small composition instead of a whole extra copy of the grammar.
+    domain = (pynini.closure(CHAR) + stems + pynini.union(*signs) + pynini.closure(CHAR)).optimize()
+    return pynini.compose(domain, rewrite).optimize()
+
+
+def _thousand_scaled(plain: pynini.Fst) -> pynini.Fst:
+    """
+    Expand a fractional thousand into digits, e.g. ஐந்து புள்ளி ஐந்து ஆயிரம் -> 5500.
+    """
+    integer = plain @ pynini.closure(DIGIT, 1, 3)
+    point = pynutil.delete(" புள்ளி ")
+    thousand = pynutil.delete(" ஆயிரம்")
+    graph = (
+        (integer + point + (plain @ DIGIT) + pynutil.insert("00"))
+        | (integer + point + (plain @ (DIGIT + DIGIT)) + pynutil.insert("0"))
+        | (integer + point + (plain @ (DIGIT + DIGIT + DIGIT)))
+    ) + thousand
+    # The fused half/quarter words scale the same way: ஒன்றரை ஆயிரம் -> 1500.
+    fused = pynini.union(
+        *[
+            pynini.cross(f"{word} ஆயிரம்", str(int(ip + fp.ljust(3, "0"))))
+            for word, ip, fp in load_labels(get_abs_path("data/numbers/itn_half_forms.tsv"))
+        ]
+    )
+    return (graph | fused).optimize()
+
+
 class CardinalFst(GraphFst):
     """
     Finite state transducer for classifying spoken cardinals, e.g.
@@ -145,14 +197,44 @@ class CardinalFst(GraphFst):
         # The TN grammar emits a leading space before நூற்று forms, so allow inserting one.
         to_ascii = pynini.closure(pynini.union(TA_TO_ASCII_DIGIT, DIGIT))
         optional_leading_space = pynini.closure(pynutil.insert(" "), 0, 1) + pynini.closure(CHAR)
-        inverted = (
+        # The TN weights (a bonus per deleted zero, another for the teens table) are
+        # meaningless in this direction and would otherwise decide ITN token boundaries:
+        # ஐந்து கோடி carries -0.7 and outbids reading the whole amount as one number.
+        inverted = _unweighted(
             optional_leading_space @ pynini.invert(tn_cardinal.itn_input_graph) @ to_ascii
-        ).optimize()
+        )
 
         # Spoken variants with spaced compounds, adapted from indic-num2words.
         variants = pynini.string_file(get_abs_path("data/numbers/itn_variants.tsv")).optimize()
 
-        self.words_to_digits = (_spoken_pre_map() @ (inverted | variants)).optimize()
+        # The pre-map rewrites colloquial phrasing but would destroy the sandhi forms
+        # TN itself emits (இருபத்திரண்டு), so the raw input is tried first.
+        pre_map = _spoken_pre_map()
+        accepted = (inverted | variants).optimize()
+        plain = pynini.union(
+            pynutil.add_weight(accepted, -0.01),
+            pre_map @ accepted,
+            _hundreds_split() @ accepted,
+        ).optimize()
+        self.words_to_digits = pynini.union(plain, _thousand_scaled(plain)).optimize()
+
+        # ஒரு / ஓர் are also the indefinite article, so they count as numbers only
+        # where a currency, unit or clock word makes the numeric reading explicit.
+        articles = pynini.string_file(get_abs_path("data/numbers/itn_articles.tsv")).optimize()
+        self.article_to_digit = articles
+        self.words_to_digits_with_article = pynini.union(self.words_to_digits, articles).optimize()
+
+        # Case-suffixed numbers keep their suffix: இரண்டாயிரத்து இருபத்துநான்கில் -> 2024ல்.
+        ta_letter = pynini.difference(TA_BLOCK, TA_DIGIT)
+        suffixed_out = pynini.closure(pynini.union(TA_TO_ASCII_DIGIT, DIGIT), 1) + pynini.closure(
+            ta_letter, 1
+        )
+        inverted_suffixed = _unweighted(
+            pynini.invert(tn_cardinal.itn_suffixed_graph) @ suffixed_out
+        )
+        self.suffixed_words_to_digits = pynini.union(
+            pynutil.add_weight(inverted_suffixed, -0.01), pre_map @ inverted_suffixed
+        ).optimize()
 
         optional_minus = pynini.closure(
             pynutil.insert("negative: ") + pynini.cross("மைனஸ் ", '"true" '), 0, 1
@@ -161,7 +243,7 @@ class CardinalFst(GraphFst):
         graph = (
             optional_minus
             + pynutil.insert('integer: "')
-            + self.words_to_digits
+            + (self.words_to_digits | pynutil.add_weight(self.suffixed_words_to_digits, 0.05))
             + pynutil.insert('"')
         )
         self.fst = self.add_tokens(graph).optimize()

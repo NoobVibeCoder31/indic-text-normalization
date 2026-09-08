@@ -20,6 +20,7 @@ from indic_text_normalization.ta.itn.taggers.decimal import DecimalFst
 from indic_text_normalization.ta.itn.taggers.fraction import FractionFst
 from indic_text_normalization.ta.itn.taggers.money import MoneyFst
 from indic_text_normalization.ta.itn.taggers.ordinal import OrdinalFst
+from indic_text_normalization.ta.itn.taggers.prose import ProseFst
 from indic_text_normalization.ta.itn.taggers.punctuation import PunctuationFst
 from indic_text_normalization.ta.itn.taggers.telephone import TelephoneFst
 from indic_text_normalization.ta.itn.taggers.time import TimeFst
@@ -45,11 +46,13 @@ class ClassifyFst(GraphFst):
         money = MoneyFst(cardinal=cardinal, deterministic=deterministic)
         telephone = TelephoneFst(deterministic=deterministic)
         punctuation = PunctuationFst(deterministic=deterministic)
+        prose = ProseFst(deterministic=deterministic)
 
-        # Already-written numbers (ITN output re-fed) pass through untouched.
+        # Already-written numbers (ITN output re-fed) pass through untouched, including
+        # a telephone country code (+91) which must not split into punctuation + digits.
         digits_passthrough = (
-            pynini.closure(pynini.accep("-"), 0, 1)
-            + pynini.closure(pynini.union(*"₹$£€¥₩"), 0, 1)
+            pynini.closure(pynini.union("-", "+"), 0, 1)
+            + pynini.closure(pynini.union(*"₹$£€¥₩₺৳₦"), 0, 1)
             + pynini.closure(pynini.union(DIGIT, TA_DIGIT), 1)
             + pynini.closure(
                 pynini.union(*".:,/") + pynini.closure(pynini.union(DIGIT, TA_DIGIT), 1)
@@ -59,6 +62,7 @@ class ClassifyFst(GraphFst):
 
         classify = (
             pynutil.add_weight(digits_token, 0.8)
+            | pynutil.add_weight(prose.fst, 1.0)
             | pynutil.add_weight(telephone.fst, 0.9)
             | pynutil.add_weight(date.fst, 1.04)
             | pynutil.add_weight(time.fst, 1.05)

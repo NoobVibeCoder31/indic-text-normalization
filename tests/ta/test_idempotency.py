@@ -52,6 +52,13 @@ class TestIdempotency:
             pytest.xfail("documented non-idempotent form")
         assert ta_tn.normalize(spoken) == spoken
 
+    @pytest.mark.parametrize("written", sorted(set(_golden_outputs("itn"))))
+    def test_itn_golden_outputs_stable(self, ta_itn: InverseNormalizer, written: str) -> None:
+        """
+        Every ITN golden output passes through ITN unchanged.
+        """
+        assert ta_itn.inverse_normalize(written) == written
+
     @pytest.mark.parametrize("text", sorted(_SYMBOL_PAIRS))
     def test_tn_symbol_pairs_idempotent(self, ta_tn: Normalizer, text: str) -> None:
         """

@@ -5,3 +5,6 @@ hello world~hello world
 10:30 ஆகிறது~10:30 ஆகிறது
 # round2-fix F14: written negative money passes through ITN
 -₹500~-₹500
+# probe-fix I-P1: brackets and quotes no longer block the number inside them
+[ஐந்து]~[ 5 ]
+"ஐந்து"~" 5 "

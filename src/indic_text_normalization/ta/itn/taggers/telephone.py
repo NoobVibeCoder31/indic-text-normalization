@@ -25,8 +25,9 @@ class TelephoneFst(GraphFst):
         # பூஜ்ஜியம் is a common variant of பூஜ்யம்.
         digit = pynini.union(digit_words, pynini.cross("பூஜ்ஜியம்", "0")).optimize()
 
-        # Ten digit words in a row (Indian mobile length).
-        number = digit + pynini.closure(delete_space + digit, 9, 9)
+        # Ten to twelve digit words in a row: mobiles, landlines with an STD code
+        # (044-28230000) and toll-free numbers (1800-425-1234).
+        number = digit + pynini.closure(delete_space + digit, 9, 11)
 
         country_code = (
             pynutil.insert('country_code: "')

@@ -5,7 +5,7 @@ ITN tagger converting spoken Tamil ordinals to digits with an ordinal suffix.
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.ta.constants import CHAR, GraphFst
+from indic_text_normalization.ta.constants import CHAR, TA_BLOCK, TA_DIGIT, GraphFst
 from indic_text_normalization.ta.itn.taggers.cardinal import CardinalFst
 
 
@@ -19,30 +19,28 @@ class OrdinalFst(GraphFst):
     def __init__(self, cardinal: CardinalFst, deterministic: bool = True) -> None:
         super().__init__(name="ordinal", kind="classify", deterministic=deterministic)
 
-        # Undo the adjectival stem: -ாவது / -ாம் back to the cardinal's -உ / -ம் ending.
-        sigma = pynini.closure(CHAR)
-        to_cardinal_vathu = sigma + pynini.cross("ாவது", "ு")
-        to_cardinal_aam = sigma + pynini.cross("ாம்", "ு")
-        first_vathu = pynini.cross("முதலாவது", "ஒன்று")
-        first_aam = pynini.cross("முதலாம்", "ஒன்று")
+        # Undo the adjectival stem: the cardinal's final -உ becomes -ஆ and a ம்-final
+        # scale word becomes -மா (ஐந்து -> ஐந்தா, ஆயிரம் -> ஆயிரமா, நூறு -> நூற்றா).
+        to_cardinal = pynini.closure(CHAR) + pynini.union(
+            pynini.cross("ா", "ு"),
+            pynini.cross("மா", "ம்"),
+            pynini.cross("ற்றா", "று"),
+        )
+        stem = (to_cardinal @ cardinal.words_to_digits) | pynini.cross("முதலா", "1")
 
+        integer = pynutil.insert('integer: "') + stem + pynutil.insert('"')
+
+        # -வது plus any inflected tail: ஐந்தாவது -> 5வது, ஐந்தாவதுக்கு -> 5வதுக்கு.
+        ta_letter = pynini.difference(TA_BLOCK, TA_DIGIT)
         graph_vathu = (
-            pynutil.insert('integer: "')
-            + (
-                (to_cardinal_vathu @ cardinal.words_to_digits)
-                | (first_vathu @ cardinal.words_to_digits)
-            )
+            integer
+            + pynutil.insert(' morphosyntactic_features: "')
+            + pynini.accep("வத")
+            + pynini.closure(ta_letter, 1)
             + pynutil.insert('"')
-            + pynutil.insert(' morphosyntactic_features: "வது"')
         )
         graph_aam = (
-            pynutil.insert('integer: "')
-            + (
-                (to_cardinal_aam @ cardinal.words_to_digits)
-                | (first_aam @ cardinal.words_to_digits)
-            )
-            + pynutil.insert('"')
-            + pynutil.insert(' morphosyntactic_features: "ஆம்"')
+            integer + pynutil.insert(' morphosyntactic_features: "ஆம்"') + pynutil.delete("ம்")
         )
 
         graph = (graph_vathu | graph_aam) + pynutil.insert(" preserve_order: true")

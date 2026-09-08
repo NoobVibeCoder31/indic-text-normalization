@@ -5,20 +5,21 @@ ITN verbalizer passing plain words through.
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.ta.constants import CHAR, GraphFst, delete_space
-
-# Values may contain non-breaking spaces inserted by convert_space.
-_NOT_QUOTE = pynini.difference(CHAR, r'"').optimize()
+from indic_text_normalization.ta.constants import CHAR, SIGMA, GraphFst, delete_space
 
 
 class WordFst(GraphFst):
     """
     Finite state transducer for verbalizing plain words, e.g.
-        tokens { name: "வணக்கம்" } -> வணக்கம்
+        tokens { name: "\u0bb5\u0ba3\u0b95\u0bcd\u0b95\u0bae\u0bcd" } -> \u0bb5\u0ba3\u0b95\u0bcd\u0b95\u0bae\u0bcd
     """
 
     def __init__(self, deterministic: bool = True) -> None:
         super().__init__(name="word", kind="verbalize", deterministic=deterministic)
 
-        graph = pynutil.delete('name: "') + pynini.closure(_NOT_QUOTE, 1) + pynutil.delete('"')
+        # A value may itself be a U+0022 QUOTATION MARK token, so only the space is excluded.
+        chars = pynini.closure(pynini.difference(CHAR, " "), 1)
+        graph = pynutil.delete('name: "') + chars + pynutil.delete('"')
+        # Multi-word values travel with U+00A0 NO-BREAK SPACE; write them with plain spaces.
+        graph = graph @ pynini.cdrewrite(pynini.cross("\u00a0", " "), "", "", SIGMA)
         self.fst = (delete_space + graph + delete_space).optimize()

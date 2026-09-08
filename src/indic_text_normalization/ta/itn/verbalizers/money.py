@@ -6,6 +6,7 @@ import pynini
 from pynini.lib import pynutil
 
 from indic_text_normalization.ta.constants import (
+    DIGIT,
     NOT_QUOTE,
     GraphFst,
     delete_preserve_order,
@@ -28,11 +29,9 @@ class MoneyFst(GraphFst):
         integer = (
             pynutil.delete('integer_part: "') + pynini.closure(NOT_QUOTE, 1) + pynutil.delete('"')
         )
-        fraction = (
-            pynutil.delete('fractional_part: "')
-            + pynini.closure(NOT_QUOTE, 1)
-            + pynutil.delete('"')
-        )
+        # A single spoken minor digit is tens of paise: ஐந்து பைசா is ₹0.05, not ₹0.5.
+        two_digits = pynini.union(DIGIT + DIGIT, pynutil.insert("0") + DIGIT)
+        fraction = pynutil.delete('fractional_part: "') + two_digits + pynutil.delete('"')
 
         optional_sign = pynini.closure(pynini.cross('negative: "true"', "-") + delete_space, 0, 1)
         self.graph = (

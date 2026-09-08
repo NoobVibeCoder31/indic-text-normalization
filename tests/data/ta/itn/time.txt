@@ -7,3 +7,23 @@
 # regression: bare "X மணி" is ambiguous with durations, hour stays a plain number (B3)
 பத்து மணி~10 மணி
 ஒரு மணிக்கு~1:00
+# probe-fix I6: hour 24 and minute 60 are not clock readings
+பத்து மணி அறுபது நிமிடம்~10 மணி 60 நிமிடம்
+இருபத்தைந்து மணிக்கு~25 மணிக்கு
+இருபத்துநான்கு மணிக்கு~24 மணிக்கு
+இருபத்துமூன்று மணிக்கு~23:00
+# probe-fix I7: fused fractional hours
+பத்தரை மணி~10.5 மணி
+பத்தரை மணிக்கு~10:30
+ஒன்றரை மணிக்கு~1:30
+பத்தே கால் மணிக்கு~10:15
+பத்தே முக்கால் மணிக்கு~10:45
+# probe-fix I7: hour+minute with no மணி between, and a day part before the hour
+பத்து முப்பது மணிக்கு~10:30
+காலை பத்து மணி~காலை 10:00
+பிற்பகல் மூன்று மணி~பிற்பகல் 3:00
+பத்து மணி முப்பது நிமிடத்தில்~10:30
+பத்து மணி முப்பது நிமிடத்துக்கு~10:30
+# probe-fix I7: அரை / கால் before a unit stay words, so a duration is not a clock
+அரை மணி~அரை மணி
+இரண்டரை மணி நேரம்~2.5 மணி நேரம்

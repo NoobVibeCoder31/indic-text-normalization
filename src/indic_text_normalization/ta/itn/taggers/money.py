@@ -5,8 +5,10 @@ ITN tagger converting spoken Tamil money amounts to symbol-and-digit form.
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.ta.constants import GraphFst, delete_space
+from indic_text_normalization.ta.constants import DIGIT, GraphFst, delete_space
+from indic_text_normalization.ta.itn.fused import half_form_graph, quarter_form_graph
 from indic_text_normalization.ta.itn.taggers.cardinal import CardinalFst
+from indic_text_normalization.ta.itn.taggers.decimal import QUANTITY_WORDS
 from indic_text_normalization.ta.utils import get_abs_path
 
 
@@ -21,14 +23,15 @@ class MoneyFst(GraphFst):
         super().__init__(name="money", kind="classify", deterministic=deterministic)
 
         currency = pynini.string_file(get_abs_path("data/money/currency_itn.tsv"))
-        minor_unit = pynutil.delete(pynini.union("பைசா", "காசு", "சென்ட்"))
+        minor = pynini.string_file(get_abs_path("data/money/minor_unit_itn.tsv"))
+        minor_word = pynutil.delete(pynini.project(minor, "input"))
 
-        integer_part = (
-            pynutil.insert('integer_part: "') + cardinal.words_to_digits + pynutil.insert('"')
-        )
-        fractional_part = (
-            pynutil.insert(' fractional_part: "') + cardinal.words_to_digits + pynutil.insert('"')
-        )
+        number = cardinal.words_to_digits_with_article
+        # Only one or two minor-unit digits are paise; more digits are not an amount.
+        minor_digits = number @ pynini.closure(DIGIT, 1, 2)
+
+        integer_part = pynutil.insert('integer_part: "') + number + pynutil.insert('"')
+        fractional_part = pynutil.insert(' fractional_part: "') + minor_digits + pynutil.insert('"')
 
         graph = (
             integer_part
@@ -36,7 +39,7 @@ class MoneyFst(GraphFst):
             + pynutil.insert(' currency: "')
             + currency
             + pynutil.insert('"')
-            + pynini.closure(delete_space + fractional_part + delete_space + minor_unit, 0, 1)
+            + pynini.closure(delete_space + fractional_part + delete_space + minor_word, 0, 1)
         )
 
         # Currency word first: ரூபாய் ஐம்பது -> ₹50.
@@ -52,21 +55,21 @@ class MoneyFst(GraphFst):
         graph |= currency_first
 
         # Quantity-word money keeps the written idiom: ஐந்து கோடி ரூபாய் -> ₹5 கோடி,
-        # இரண்டு புள்ளி ஐந்து லட்சம் ரூபாய் -> ₹2.5 லட்சம்.
-        quantity_written = pynini.union(
-            "கோடி", "இலட்சம்", "லட்சம்", "ஆயிரம்", "மில்லியன்", "பில்லியன்"
-        )
-        frac_digits = cardinal.words_to_digits + pynini.closure(
-            delete_space + cardinal.words_to_digits
-        )
-        amount_digits = cardinal.words_to_digits + pynini.closure(
-            pynini.cross(" புள்ளி ", ".") + frac_digits, 0, 1
+        # இரண்டு புள்ளி ஐந்து லட்சம் ரூபாய் -> ₹2.5 லட்சம். The amount before the scale word
+        # is at most three digits, so a fully spoken number (ஐந்து கோடி ஐம்பது லட்சம்) is
+        # read as one cardinal instead.
+        short = (number @ pynini.closure(DIGIT, 1, 3)).optimize()
+        amount_digits = pynini.union(
+            short,
+            short + pynini.cross(" புள்ளி ", ".") + short,
+            half_form_graph(lambda ip, fp: f"{ip}.{fp}"),
+            quarter_form_graph(number, "", ".", lambda fraction: fraction),
         )
         quantity_amount = (
             pynutil.insert('integer_part: "')
             + amount_digits
             + pynini.accep(" ")
-            + quantity_written
+            + pynini.union(*QUANTITY_WORDS)
             + pynutil.insert('"')
         )
         graph_quantity = (
@@ -78,25 +81,20 @@ class MoneyFst(GraphFst):
         )
         graph |= pynutil.add_weight(graph_quantity, -1.0)
 
-        # Spoken minus folds into the amount: மைனஸ் ஐந்நூறு ரூபாய் -> -₹500.
-        graph_negative = (
-            pynutil.insert("negative: ")
-            + pynini.cross("மைனஸ் ", '"true" ')
-            + integer_part
+        # Minor-unit-only amounts: ஐம்பது பைசா -> ₹0.50, ஐம்பது சென்ட் -> $0.50.
+        minor_only = (
+            pynutil.insert('fractional_part: "')
+            + minor_digits
+            + pynutil.insert('"')
             + delete_space
             + pynutil.insert(' currency: "')
-            + currency
-            + pynutil.insert('"')
+            + minor
+            + pynutil.insert('" integer_part: "0"')
         )
-        graph |= graph_negative
+        graph |= minor_only
 
-        # Paise-only amounts: ஐம்பது பைசா -> ₹0.50.
-        paise_only = (
-            pynutil.insert('currency: "₹" integer_part: "0"')
-            + fractional_part
-            + delete_space
-            + pynutil.delete(pynini.union("பைசா", "காசு"))
+        # Spoken minus folds into the amount: மைனஸ் ஐந்நூறு ரூபாய் -> -₹500.
+        optional_minus = pynini.closure(
+            pynutil.insert("negative: ") + pynini.cross("மைனஸ் ", '"true" '), 0, 1
         )
-        graph |= paise_only
-
-        self.fst = self.add_tokens(graph).optimize()
+        self.fst = self.add_tokens(optional_minus + graph).optimize()

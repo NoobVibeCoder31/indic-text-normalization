@@ -26,6 +26,16 @@ class DecimalFst(GraphFst):
             + pynini.closure(NOT_QUOTE, 1)
             + pynutil.delete('"')
         )
+        quantity = (
+            pynutil.delete('quantity: "') + pynini.closure(NOT_QUOTE, 1) + pynutil.delete('"')
+        )
 
-        self.graph = optional_sign + integer + delete_space + pynutil.insert(".") + fraction
+        self.graph = (
+            optional_sign
+            + integer
+            + delete_space
+            + pynutil.insert(".")
+            + fraction
+            + pynini.closure(delete_space + pynutil.insert(" ") + quantity, 0, 1)
+        )
         self.fst = self.delete_tokens(self.graph).optimize()

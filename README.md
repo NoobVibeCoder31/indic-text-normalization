@@ -38,8 +38,8 @@ itn.inverse_normalize("பத்து மணி முப்பது நிம
 itn.inverse_normalize("ஐம்பது ரூபாய்")                # ₹50
 ```
 
-Grammar compilation takes a few seconds; pass `cache_dir` to compile once and reload
-from an OpenFst FAR archive:
+Grammar compilation takes a couple of minutes per direction; pass `cache_dir` to compile
+once and reload from an OpenFst FAR archive:
 
 ```python
 tn = Normalizer(lang="ta", cache_dir="~/.cache/itn-grammars")
@@ -48,7 +48,7 @@ tn = Normalizer(lang="ta", cache_dir="~/.cache/itn-grammars")
 ## Development
 
 ```bash
-uv run pytest                 # golden-file + idempotency tests
+uv run pytest                 # golden-file, idempotency and round-trip tests
 uv run black --check .
 uv run ruff check
 uv run mypy

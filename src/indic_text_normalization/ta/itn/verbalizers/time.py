@@ -7,6 +7,7 @@ from pynini.lib import pynutil
 
 from indic_text_normalization.ta.constants import (
     DIGIT,
+    NOT_QUOTE,
     GraphFst,
     delete_preserve_order,
     delete_space,
@@ -33,10 +34,17 @@ class TimeFst(GraphFst):
         hours = pynutil.delete('hours: "') + pynini.closure(DIGIT, 1, 2) + pynutil.delete('"')
         minutes = pynutil.delete('minutes: "') + _two_digits() + pynutil.delete('"')
         seconds = pynutil.delete('seconds: "') + _two_digits() + pynutil.delete('"')
+        day_part = (
+            pynutil.delete('day_part: "')
+            + pynini.closure(NOT_QUOTE, 1)
+            + pynutil.delete('"')
+            + pynutil.insert(" ")
+        )
 
         graph_h = hours + pynutil.insert(":00")
         graph_hm = hours + delete_space + pynutil.insert(":") + minutes
         graph_hms = graph_hm + delete_space + pynutil.insert(":") + seconds
 
-        self.graph = (graph_hms | graph_hm | graph_h) + delete_preserve_order
+        graph = graph_hms | graph_hm | graph_h
+        self.graph = pynini.closure(day_part + delete_space, 0, 1) + graph + delete_preserve_order
         self.fst = self.delete_tokens(self.graph).optimize()
