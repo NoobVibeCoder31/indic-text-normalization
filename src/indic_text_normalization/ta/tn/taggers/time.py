@@ -1,0 +1,172 @@
+# Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import pynini
+from pynini.lib import pynutil
+
+from indic_text_normalization.ta.constants import (
+    ASCII_TO_TA_DIGIT,
+    CHAR,
+    DIGIT,
+    SPACE,
+    TA_DIGIT,
+    TA_NON_ZERO,
+    TA_ZERO,
+    GraphFst,
+    insert_space,
+)
+from indic_text_normalization.ta.utils import get_abs_path
+
+ascii_to_tamil_number = pynini.closure(ASCII_TO_TA_DIGIT).optimize()
+
+hours_graph = pynini.string_file(get_abs_path("data/time/hours.tsv"))
+minutes_graph = pynini.string_file(get_abs_path("data/time/minutes.tsv"))
+seconds_graph = pynini.string_file(get_abs_path("data/time/seconds.tsv"))
+
+
+class TimeFst(GraphFst):
+    """
+    Finite state transducer for classifying time, e.g.
+        ௧௨:௩௦:௩௦ -> time { hours: "பன்னிரண்டு" minutes: "முப்பது" seconds: "முப்பது" }
+        1:40 -> time { hours: "ஒன்று" minutes: "நாற்பது" }
+        ௧:௦௦ -> time { hours: "ஒன்று" }
+    """
+
+    def __init__(self) -> None:
+        super().__init__(name="time", kind="classify")
+
+        delete_colon = pynutil.delete(":")
+
+        delete_leading_zero_tamil = (
+            (TA_NON_ZERO + TA_DIGIT) | (pynutil.delete(TA_ZERO) + TA_DIGIT) | TA_DIGIT
+        ).optimize()
+        delete_leading_zero_ascii = (
+            (pynini.difference(DIGIT, "0") + DIGIT) | (pynutil.delete("0") + DIGIT) | DIGIT
+        ).optimize()
+
+        hour_input = (
+            pynini.compose(delete_leading_zero_tamil, hours_graph)
+            | pynini.compose(delete_leading_zero_ascii, ascii_to_tamil_number @ hours_graph)
+        ).optimize()
+        minute_input = (
+            pynini.compose(pynini.closure(TA_DIGIT, 1), minutes_graph)
+            | pynini.compose(pynini.closure(DIGIT, 1), ascii_to_tamil_number @ minutes_graph)
+        ).optimize()
+        second_input = (
+            pynini.compose(pynini.closure(TA_DIGIT, 1), seconds_graph)
+            | pynini.compose(pynini.closure(DIGIT, 1), ascii_to_tamil_number @ seconds_graph)
+        ).optimize()
+
+        # Hour 24 is only meaningful as 24:00, so the general hour excludes it and only
+        # the H:00 branch below admits it.
+        hour_upto_23 = hour_input @ pynini.difference(
+            pynini.closure(CHAR), pynini.accep("இருபத்துநான்கு")
+        )
+        self.hours = pynutil.insert('hours: "') + hour_upto_23 + pynutil.insert('" ')
+        hours_with_24 = pynutil.insert('hours: "') + hour_input + pynutil.insert('" ')
+        self.minutes = pynutil.insert('minutes: "') + minute_input + pynutil.insert('" ')
+        self.seconds = pynutil.insert('seconds: "') + second_input + pynutil.insert('" ')
+
+        # The verbalizer inserts மணி itself, so a trailing written மணி/மணிக்கு (and a
+        # bare case suffix on the digits: 3:30க்கு, 10:30ல்) is absorbed here.
+        optional_manikku = pynini.closure(
+            pynini.closure(SPACE, 0, 1)
+            + pynutil.delete(pynini.union("மணிக்கு", "மணி", "க்கு", "ல்", "இல்")),
+            0,
+            1,
+        ).optimize()
+
+        graph_hms = (
+            self.hours
+            + delete_colon
+            + insert_space
+            + self.minutes
+            + delete_colon
+            + insert_space
+            + self.seconds
+            + optional_manikku
+        )
+        delete_zero_seconds = pynini.closure(pynutil.delete(pynini.union(":00", ":௦௦")), 0, 1)
+        graph_hm = (
+            self.hours
+            + delete_colon
+            + insert_space
+            + self.minutes
+            + delete_zero_seconds
+            + optional_manikku
+        )
+        delete_zero_minutes = delete_colon + (pynutil.delete("௦௦") | pynutil.delete("00"))
+        graph_h = hours_with_24 + delete_zero_minutes + delete_zero_seconds + optional_manikku
+        # 10:00:30 keeps only the seconds: பத்து மணி முப்பது வினாடி.
+        graph_h_s = (
+            self.hours
+            + delete_zero_minutes
+            + delete_colon
+            + insert_space
+            + self.seconds
+            + optional_manikku
+        )
+
+        # Trailing AM/PM becomes a meridiem word the verbalizer fronts.
+        meridiem = pynini.closure(
+            pynutil.delete(pynini.closure(" ", 0, 1))
+            + pynutil.insert(' meridiem: "')
+            + (
+                pynini.cross(pynini.union("AM", "am", "A.M.", "a.m."), "முற்பகல்")
+                | pynini.cross(pynini.union("PM", "pm", "P.M.", "p.m."), "பிற்பகல்")
+            )
+            + pynutil.insert('"'),
+            0,
+            1,
+        )
+
+        final_graph = (
+            graph_hms
+            | pynutil.add_weight(graph_hm, 1.0)
+            | pynutil.add_weight(graph_h_s, 1.0)
+            | pynutil.add_weight(graph_h, 0.8)
+        ) + meridiem
+
+        # Press-style dotted time (10.30) is only a time with a clock context: a
+        # trailing மணி/மணிக்கு, or a day-part word / மு.ப. / பி.ப. before or after it.
+        two_digit_minutes = pynini.compose(
+            pynini.union(TA_DIGIT + TA_DIGIT, DIGIT + DIGIT), minute_input
+        )
+        dotted = (
+            self.hours
+            + pynutil.delete(".")
+            + insert_space
+            + pynutil.insert('minutes: "')
+            + two_digit_minutes
+            + pynutil.insert('" ')
+        )
+        space = pynini.closure(SPACE, 0, 1)
+        trailing_mani = space + pynutil.delete(pynini.union("மணிக்கு", "மணி"))
+        day_parts = ["காலை", "அதிகாலை", "மதியம்", "நண்பகல்", "மாலை", "இரவு", "முற்பகல்", "பிற்பகல்"]
+        abbrev = {"மு.ப.": "முற்பகல்", "மு.ப": "முற்பகல்", "பி.ப.": "பிற்பகல்", "பி.ப": "பிற்பகல்"}
+        contexts = [(w, w) for w in day_parts] + list(abbrev.items())
+        dotted_graphs = [dotted + trailing_mani]
+        for written, spoken in contexts:
+            meridiem_field = pynutil.insert(f' meridiem: "{spoken}"')
+            dotted_graphs.append(
+                pynutil.delete(written)
+                + pynutil.delete(" ")
+                + dotted
+                + pynini.closure(trailing_mani, 0, 1)
+                + meridiem_field
+            )
+            dotted_graphs.append(dotted + space + pynutil.delete(written) + meridiem_field)
+        final_graph |= pynutil.add_weight(pynini.union(*dotted_graphs), 0.9)
+
+        self.fst = self.add_tokens(final_graph).optimize()

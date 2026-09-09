@@ -1,0 +1,6 @@
+வணக்கம்~வணக்கம்
+hello world~hello world
+அவன் வீட்டுக்கு சென்றான்.~அவன் வீட்டுக்கு சென்றான் .
+# probe-fix P19: URLs pass through as one token
+www.google.com~www.google.com
+https://example.com/path~https://example.com/path

@@ -1,0 +1,18 @@
+3/4~நான்கில் மூன்று
+1/2~இரண்டில் ஒன்று
+7/8~எட்டில் ஏழு
+௩/௪~நான்கில் மூன்று
+½~இரண்டில் ஒன்று
+¾~நான்கில் மூன்று
+2¾~இரண்டு மற்றும் நான்கில் மூன்று
+# regression: zero denominator excluded from fraction (B4) - reads as numbers
+1/0~ஒன்று / பூஜ்யம்
+# probe-fix P8: every denominator takes the regular locative (was a silent passthrough)
+3/45~நாற்பத்தைந்தில் மூன்று
+5/25~இருபத்தைந்தில் ஐந்து
+1/200~இருநூற்றில் ஒன்று
+1/1000~ஆயிரத்தில் ஒன்று
+# probe-fix P8: negative fraction keeps its sign
+-1/2~மைனஸ் இரண்டில் ஒன்று
+# probe-fix P8: zero-led parts (date fragments) are not fractions
+15/06~பதினைந்து / பூஜ்யம் ஆறு
