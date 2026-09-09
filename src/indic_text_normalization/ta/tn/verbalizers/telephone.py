@@ -40,7 +40,7 @@ class TelephoneFst(GraphFst):
         deterministic: if True will provide a single transduction option
     """
 
-    def __init__(self, deterministic: bool = True):
+    def __init__(self, deterministic: bool = True) -> None:
         super().__init__(name="telephone", kind="verbalize", deterministic=deterministic)
 
         # Optional country code

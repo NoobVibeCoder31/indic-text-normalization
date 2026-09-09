@@ -27,7 +27,7 @@ class WordFst(GraphFst):
             for False multiple transduction are generated (used for audio-based normalization)
     """
 
-    def __init__(self, deterministic: bool = True):
+    def __init__(self, deterministic: bool = True) -> None:
         super().__init__(name="word", kind="verbalize", deterministic=deterministic)
         chars = pynini.closure(CHAR - " ", 1)
         punct = pynini.union(

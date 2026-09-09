@@ -43,7 +43,9 @@ class TestEngine:
             "15-06-2024": "பதினைந்து ஜூன் இரண்டாயிரத்து இருபத்துநான்கு",
         }
         items = list(cases.items())
-        barrier = threading.Barrier(8)
+        # A timeout so one worker's assertion failure breaks the barrier and every
+        # other worker exits, instead of the suite hanging on the next round.
+        barrier = threading.Barrier(8, timeout=30)
 
         def work(i: int) -> None:
             for round_ in range(50):

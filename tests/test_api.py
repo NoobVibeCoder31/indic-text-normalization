@@ -6,6 +6,10 @@ import pytest
 
 from indic_text_normalization import InverseNormalizer, Normalizer
 from indic_text_normalization.core.registry import ITN, TN, supported_languages
+from pathlib import Path
+
+import indic_text_normalization
+from indic_text_normalization.core import cache
 
 
 class TestNormalizer:
@@ -52,3 +56,41 @@ class TestNormalizer:
         for text in ["123", "₹50", "10:30"]:
             assert cached.normalize(text) == ta_tn.normalize(text)
             assert reloaded.normalize(text) == ta_tn.normalize(text)
+
+
+class TestGrammarCacheIdentity:
+    """
+    The FAR cache is keyed by the grammar sources, not just the language and direction.
+    """
+
+    def test_path_includes_the_digest(self, tmp_path: Path) -> None:
+        """
+        The FAR path is nested under a digest, so two grammar versions cannot collide.
+        """
+        path = cache.far_path(tmp_path, "ta", "itn")
+        assert path.name == "ta_itn.far"
+        assert path.parent.name == cache.grammar_digest("ta")
+
+    def test_digest_changes_when_a_data_file_changes(self) -> None:
+        """
+        Editing a packaged table invalidates the cache identity, so a stale FAR written
+        before the edit is never reused.
+        """
+        table = (
+            Path(indic_text_normalization.__file__).resolve().parent
+            / "ta"
+            / "data"
+            / "numbers"
+            / "zero.tsv"
+        )
+        original = table.read_bytes()
+        before = cache.grammar_digest("ta")
+        try:
+            table.write_bytes(original + b"\n")
+            cache.grammar_digest.cache_clear()
+            after = cache.grammar_digest("ta")
+        finally:
+            table.write_bytes(original)
+            cache.grammar_digest.cache_clear()
+        assert after != before
+        assert cache.grammar_digest("ta") == before

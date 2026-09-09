@@ -32,7 +32,7 @@ class DecimalFst(GraphFst):
 
     """
 
-    def __init__(self, deterministic: bool = True):
+    def __init__(self, deterministic: bool = True) -> None:
         super().__init__(name="decimal", kind="verbalize", deterministic=deterministic)
 
         delete_space = pynutil.delete(" ")

@@ -34,7 +34,7 @@ class DateFst(GraphFst):
             for False multiple transduction are generated (used for audio-based normalization)
     """
 
-    def __init__(self, deterministic: bool = True):
+    def __init__(self, deterministic: bool = True) -> None:
         super().__init__(name="date", kind="verbalize", deterministic=deterministic)
 
         day = pynutil.delete('day: "') + pynini.closure(NOT_QUOTE, 1) + pynutil.delete('"')

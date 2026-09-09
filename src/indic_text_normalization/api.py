@@ -2,6 +2,7 @@
 Public entry points: Normalizer (TN) and InverseNormalizer (ITN).
 """
 
+from functools import cache as _memoize
 from pathlib import Path
 
 from indic_text_normalization.core import cache
@@ -106,15 +107,37 @@ class InverseNormalizer:
         return self._engine.normalize(text)
 
 
+@_memoize
+def _normalizer(lang: str) -> Normalizer:
+    """
+    Normalizer for ``lang``, built once per process.
+    """
+    return Normalizer(lang=lang)
+
+
+@_memoize
+def _inverse_normalizer(lang: str) -> InverseNormalizer:
+    """
+    InverseNormalizer for ``lang``, built once per process.
+    """
+    return InverseNormalizer(lang=lang)
+
+
 def normalize(text: str, *, lang: str = "ta") -> str:
     """
-    Normalize ``text`` to spoken form with a freshly built grammar.
+    Normalize ``text`` to spoken form, reusing a grammar built once per language.
+
+    The first call compiles the grammar, which takes minutes and several GB. Construct a
+    :class:`Normalizer` with ``cache_dir`` instead to persist it across processes.
     """
-    return Normalizer(lang=lang).normalize(text)
+    return _normalizer(lang).normalize(text)
 
 
 def inverse_normalize(text: str, *, lang: str = "ta") -> str:
     """
-    Inverse-normalize ``text`` to written form with a freshly built grammar.
+    Inverse-normalize ``text`` to written form, reusing a grammar built once per language.
+
+    The first call compiles the grammar, which takes minutes and several GB. Construct an
+    :class:`InverseNormalizer` with ``cache_dir`` instead to persist it across processes.
     """
-    return InverseNormalizer(lang=lang).inverse_normalize(text)
+    return _inverse_normalizer(lang).inverse_normalize(text)

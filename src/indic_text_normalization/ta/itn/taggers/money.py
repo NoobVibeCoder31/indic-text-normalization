@@ -5,6 +5,7 @@ ITN tagger converting spoken Tamil money amounts to symbol-and-digit form.
 import pynini
 from pynini.lib import pynutil
 
+from indic_text_normalization.core.utils import load_labels
 from indic_text_normalization.ta.constants import DIGIT, GraphFst, delete_space
 from indic_text_normalization.ta.itn.fused import half_form_rows, quarter_form_graph
 from indic_text_normalization.ta.itn.scales import kept_scale_words
@@ -22,9 +23,18 @@ class MoneyFst(GraphFst):
     def __init__(self, cardinal: CardinalFst, deterministic: bool = True) -> None:
         super().__init__(name="money", kind="classify", deterministic=deterministic)
 
-        currency = pynini.string_file(get_abs_path("data/money/currency_itn.tsv"))
-        minor = pynini.string_file(get_abs_path("data/money/minor_unit_itn.tsv"))
-        minor_word = pynutil.delete(pynini.project(minor, "input"))
+        major_rows = load_labels(get_abs_path("data/money/currency_itn.tsv"), min_fields=2)
+        minor_rows = load_labels(get_abs_path("data/money/minor_unit_itn.tsv"), min_fields=2)
+        currency = pynini.string_map(major_rows)
+        minor = pynini.string_map(minor_rows)
+        # A minor unit belongs to one major currency: பைசா is rupees, சென்ட் is dollars.
+        # Grouping them by symbol keeps ஐந்து டாலர் ஐம்பது பைசா from reading as $5.50.
+        majors_by_symbol: dict[str, list[str]] = {}
+        minors_by_symbol: dict[str, list[str]] = {}
+        for word, symbol in major_rows:
+            majors_by_symbol.setdefault(symbol, []).append(word)
+        for word, symbol in minor_rows:
+            minors_by_symbol.setdefault(symbol, []).append(word)
 
         number = cardinal.words_to_digits_with_article
         # Only one or two minor-unit digits are paise; more digits are not an amount.
@@ -39,8 +49,20 @@ class MoneyFst(GraphFst):
             + pynutil.insert(' currency: "')
             + currency
             + pynutil.insert('"')
-            + pynini.closure(delete_space + fractional_part + delete_space + minor_word, 0, 1)
         )
+        for symbol, minor_words in minors_by_symbol.items():
+            if symbol not in majors_by_symbol:
+                continue
+            graph |= (
+                integer_part
+                + delete_space
+                + pynutil.insert(f' currency: "{symbol}"')
+                + pynutil.delete(pynini.union(*majors_by_symbol[symbol]))
+                + delete_space
+                + fractional_part
+                + delete_space
+                + pynutil.delete(pynini.union(*minor_words))
+            )
 
         # Currency word first: ரூபாய் ஐம்பது -> ₹50.
         currency_first = (

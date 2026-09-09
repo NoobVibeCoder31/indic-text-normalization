@@ -70,7 +70,7 @@ class CardinalFst(GraphFst):
             for False multiple transduction are generated (used for audio-based normalization)
     """
 
-    def __init__(self, deterministic: bool = True):
+    def __init__(self, deterministic: bool = True) -> None:
         super().__init__(name="cardinal", kind="classify", deterministic=deterministic)
 
         # Load Tamil number mappings efficiently

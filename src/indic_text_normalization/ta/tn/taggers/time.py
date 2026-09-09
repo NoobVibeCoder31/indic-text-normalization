@@ -17,6 +17,7 @@ from pynini.lib import pynutil
 
 from indic_text_normalization.ta.constants import (
     ASCII_TO_TA_DIGIT,
+    CHAR,
     DIGIT,
     SPACE,
     TA_DIGIT,
@@ -67,7 +68,13 @@ class TimeFst(GraphFst):
             | pynini.compose(pynini.closure(DIGIT, 1), ascii_to_tamil_number @ seconds_graph)
         ).optimize()
 
-        self.hours = pynutil.insert('hours: "') + hour_input + pynutil.insert('" ')
+        # Hour 24 is only meaningful as 24:00, so the general hour excludes it and only
+        # the H:00 branch below admits it.
+        hour_upto_23 = hour_input @ pynini.difference(
+            pynini.closure(CHAR), pynini.accep("இருபத்துநான்கு")
+        )
+        self.hours = pynutil.insert('hours: "') + hour_upto_23 + pynutil.insert('" ')
+        hours_with_24 = pynutil.insert('hours: "') + hour_input + pynutil.insert('" ')
         self.minutes = pynutil.insert('minutes: "') + minute_input + pynutil.insert('" ')
         self.seconds = pynutil.insert('seconds: "') + second_input + pynutil.insert('" ')
 
@@ -100,7 +107,7 @@ class TimeFst(GraphFst):
             + optional_manikku
         )
         delete_zero_minutes = delete_colon + (pynutil.delete("௦௦") | pynutil.delete("00"))
-        graph_h = self.hours + delete_zero_minutes + delete_zero_seconds + optional_manikku
+        graph_h = hours_with_24 + delete_zero_minutes + delete_zero_seconds + optional_manikku
         # 10:00:30 keeps only the seconds: பத்து மணி முப்பது வினாடி.
         graph_h_s = (
             self.hours

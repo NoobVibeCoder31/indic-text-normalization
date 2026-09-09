@@ -29,7 +29,7 @@ class OrdinalFst(GraphFst):
             for False multiple options (used for audio-based normalization)
     """
 
-    def __init__(self, deterministic: bool = True):
+    def __init__(self, deterministic: bool = True) -> None:
         super().__init__(name="ordinal", kind="verbalize", deterministic=deterministic)
 
         integer_value = (

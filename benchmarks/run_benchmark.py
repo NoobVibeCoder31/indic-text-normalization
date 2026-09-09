@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import hashlib
 import json
 import multiprocessing
 import statistics
@@ -246,29 +245,10 @@ def evaluate(rows: Iterable[Row], results: Iterable[Result], *, slowest: int = 5
 _NORMALIZE: NormalizeFn | None = None
 
 
-def grammar_cache_dir(cache_dir: Path, lang: str) -> Path:
-    """
-    Sub-directory of ``cache_dir`` keyed by a hash of the grammar sources, so a stale
-    FAR archive is never reused after the grammar changes.
-    """
-    import indic_text_normalization
-
-    root = Path(indic_text_normalization.__file__).resolve().parent
-    digest = hashlib.sha256()
-    for sub in ("core", lang):
-        for path in sorted((root / sub).rglob("*")):
-            if path.is_file() and path.suffix in (".py", ".tsv"):
-                digest.update(str(path.relative_to(root)).encode())
-                digest.update(path.read_bytes())
-    return cache_dir / digest.hexdigest()[:16]
-
-
 def build_normalizer(lang: str, direction: str, cache_dir: Path | None) -> NormalizeFn:
     """
     Build (or load from FAR cache) the normalize callable for ``lang``/``direction``.
     """
-    if cache_dir is not None:
-        cache_dir = grammar_cache_dir(cache_dir, lang)
     if direction == "tn":
         return Normalizer(lang=lang, cache_dir=cache_dir).normalize
     if direction == "itn":
