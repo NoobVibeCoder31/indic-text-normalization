@@ -58,16 +58,19 @@ class TestNormalizer:
 
     @pytest.mark.parametrize("lang", ["ta", "te"])
     def test_far_cache_round_trip(
-        self, tmp_path: object, lang: str, request: pytest.FixtureRequest
+        self, tmp_path: Path, lang: str, request: pytest.FixtureRequest
     ) -> None:
         """
-        A cached grammar loads from FAR and produces identical output.
+        A grammar saved to FAR loads back and produces identical output.
+
+        The session normalizer's compiled FSTs are written to the cache instead of
+        compiling a second time, so this exercises the load path in seconds.
         """
         live: Normalizer = request.getfixturevalue(f"{lang}_tn")
-        cached = Normalizer(lang=lang, cache_dir=str(tmp_path))
+        engine = live._engine
+        cache.save(cache.far_path(tmp_path, lang, TN), engine.classify, engine.verbalize)
         reloaded = Normalizer(lang=lang, cache_dir=str(tmp_path))
         for text in ["123", "₹50", "10:30"]:
-            assert cached.normalize(text) == live.normalize(text)
             assert reloaded.normalize(text) == live.normalize(text)
 
 

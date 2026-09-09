@@ -2,6 +2,7 @@
 Shared fixtures and golden-file loading for the test suite.
 """
 
+import os
 from pathlib import Path
 
 import pytest
@@ -10,6 +11,10 @@ from _pytest.mark.structures import ParameterSet
 from indic_text_normalization import InverseNormalizer, Normalizer
 
 DATA_DIR = Path(__file__).parent / "data"
+
+# Set INDIC_TN_TEST_CACHE to a directory to load/save compiled grammars as FAR files instead
+# of compiling them in every session (compilation dominates the suite's run time).
+CACHE_DIR = os.environ.get("INDIC_TN_TEST_CACHE") or None
 
 
 def load_golden(lang: str, direction: str, name: str) -> list[ParameterSet]:
@@ -47,7 +52,7 @@ def ta_tn() -> Normalizer:
     """
     Session-wide Tamil TN normalizer (grammar compiled once).
     """
-    return Normalizer(lang="ta")
+    return Normalizer(lang="ta", cache_dir=CACHE_DIR)
 
 
 @pytest.fixture(scope="session")
@@ -55,7 +60,7 @@ def ta_itn() -> InverseNormalizer:
     """
     Session-wide Tamil ITN normalizer (grammar compiled once).
     """
-    return InverseNormalizer(lang="ta")
+    return InverseNormalizer(lang="ta", cache_dir=CACHE_DIR)
 
 
 @pytest.fixture(scope="session")
@@ -63,7 +68,7 @@ def te_tn() -> Normalizer:
     """
     Session-wide Telugu TN normalizer (grammar compiled once).
     """
-    return Normalizer(lang="te")
+    return Normalizer(lang="te", cache_dir=CACHE_DIR)
 
 
 @pytest.fixture(scope="session")
@@ -71,4 +76,4 @@ def te_itn() -> InverseNormalizer:
     """
     Session-wide Telugu ITN normalizer (grammar compiled once).
     """
-    return InverseNormalizer(lang="te")
+    return InverseNormalizer(lang="te", cache_dir=CACHE_DIR)

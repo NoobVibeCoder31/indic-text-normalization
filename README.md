@@ -117,6 +117,7 @@ state and no I/O. Output is deterministic and does not depend on the system loca
 
 ```bash
 uv run pytest                 # golden-file, idempotency and round-trip tests
+INDIC_TN_TEST_CACHE=~/.cache/itn-test-far uv run pytest   # reuse compiled grammars across runs
 uv run black --check .
 uv run ruff check
 uv run mypy

@@ -144,3 +144,10 @@ order 66 confirmed~order అరవై ఆరు confirmed
 √16~వర్గమూలం పదహారు
 5≥3~ఐదు ఎక్కువ లేదా సమానం మూడు
 10/2=5~పది భాగించి రెండు సమానం ఐదు
+# probe-fix T17: a word-initial plus before any non-telephone number is the word ప్లస్ on the first pass
++0.0~ప్లస్ సున్నా దశాంశం సున్నా
++5%~ప్లస్ ఐదు శాతం
++5-6~ప్లస్ ఐదు నుండి ఆరు
++1,000~ప్లస్ వెయ్యి
++5 kg~ప్లస్ ఐదు కిలోగ్రాములు
++5లో~ప్లస్ ఐదులో

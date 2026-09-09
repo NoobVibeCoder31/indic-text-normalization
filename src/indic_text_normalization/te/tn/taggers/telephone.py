@@ -171,13 +171,14 @@ class TelephoneFst(GraphFst):
         )
         graph |= pynutil.add_weight(cued_digits, 0.1)
 
-        # A standalone +NN (no number following) still reads as ప్లస్ <cardinal>.
+        # A standalone +N... (no number following) reads as ప్లస్ <number>, digit by digit
+        # when the run has leading zeros or exceeds the crore range (+000, +007).
         if cardinal is not None:
             standalone_cc = (
                 pynutil.insert('country_code: "')
                 + pynini.cross("+", PLUS_WORD)
                 + insert_space
-                + pynini.compose(pynini.closure(any_digit, 1, 3), cardinal.final_graph)
+                + (cardinal.final_graph | pynutil.add_weight(cardinal.digit_by_digit, 1.0))
                 + pynutil.insert('"')
             )
             graph |= pynutil.add_weight(standalone_cc, 0.3)

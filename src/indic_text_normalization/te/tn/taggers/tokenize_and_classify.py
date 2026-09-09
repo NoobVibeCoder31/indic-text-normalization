@@ -214,6 +214,29 @@ class ClassifyFst(GraphFst):
                 pynutil.insert(" "), "+", pynini.difference(NOT_SPACE, any_digit), SIGMA
             )
         )
+        # A word-initial "+" before a digit is the word ప్లస్ unless it opens a telephone
+        # country code (+91 98765..., +91-44-..., +91 (44) ...), which the telephone tagger
+        # reads digit by digit. Speaking it here keeps "+0.0", "+5%" and "+5-6" idempotent.
+        # Telephone shapes: a 1-3 digit code, a separator, then at least six more digits
+        # possibly split by spaces, hyphens or parentheses (+91 98765 43210, +91-44-28230000,
+        # +91 (44) 2823 0000); or 11-13 glued digits with an optional suffix (+919876543210కి).
+        seps = pynini.closure(pynini.union(" ", "-", "(", ")"))
+        country_code_shape = (
+            pynini.closure(any_digit, 1, 3)
+            + pynini.union(" ", "-")
+            + seps
+            + pynini.closure(any_digit + seps, 6)
+            + pynini.closure(te_letter)
+        )
+        country_code_shape |= pynini.closure(any_digit, 11, 13) + pynini.closure(te_letter)
+        country_code_shape = country_code_shape.optimize()
+        # The right context is anchored with [EOS]: a cdrewrite context matches any prefix,
+        # so a set-difference language only works over the whole remainder of the string.
+        not_country_code = pynini.difference(any_digit + SIGMA, country_code_shape) + "[EOS]"
+        plus_word = pynini.cdrewrite(
+            pynini.cross("+", "ప్లస్ "), pynini.union("[BOS]", " "), not_country_code, SIGMA
+        )
+
         # "<" and ">" are markup except between two digits, where they are comparisons.
         spaces = pynini.closure(" ")
         comparison = pynini.cdrewrite(
@@ -291,6 +314,7 @@ class ClassifyFst(GraphFst):
             @ space_before_digit
             @ split_symbol
             @ split_plus
+            @ plus_word
             @ joiner_hyphen_to_space
             @ letter_digit
             @ dot_letter
