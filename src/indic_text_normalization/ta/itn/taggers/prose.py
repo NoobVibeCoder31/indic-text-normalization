@@ -6,6 +6,7 @@ import pynini
 from pynini.lib import pynutil
 
 from indic_text_normalization.core.utils import load_labels
+from indic_text_normalization.ta.itn.ambiguity import STANDALONE, ambiguous_words
 from indic_text_normalization.ta.constants import TA_LETTER, GraphFst, convert_space
 from indic_text_normalization.ta.utils import get_abs_path
 
@@ -22,9 +23,7 @@ class ProseFst(GraphFst):
         phrases = [
             row[0] for row in load_labels(get_abs_path("data/numbers/itn_prose_phrases.tsv"))
         ]
-        ambiguous = [
-            row[0] for row in load_labels(get_abs_path("data/numbers/itn_ambiguous_words.tsv"))
-        ]
+        ambiguous = [word for word, _ in ambiguous_words(STANDALONE)]
 
         # An ambiguous word reads as a fraction only on its own; any Tamil word after it
         # (கால் வலிக்கிறது, அரை நிஜார்) makes the word reading the right one.

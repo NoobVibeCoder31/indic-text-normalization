@@ -53,3 +53,9 @@ $50M~ஐம்பது மில்லியன் டாலர்
 ₦.50~ஐம்பது கோபோ
 ¥.50~ஐம்பது சென்
 ₩.50~ஐம்பது ஜியோன்
+# review-fix R9: class arbitration around the money amount's -0.1 weight, next to
+# whitelist (1.01), measure (1.03), date (1.04) and cardinal in the token ladder
+₹5 கிலோ~ஐந்து ரூபாய் கிலோ
+₹5%~ஐந்து ரூபாய் சதவீதம்
+₹5-10 கோடி~ஐந்து முதல் பத்து கோடி ரூபாய்
+₹.50~ஐம்பது பைசா

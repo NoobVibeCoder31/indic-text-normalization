@@ -38,8 +38,10 @@ itn.inverse_normalize("பத்து மணி முப்பது நிம
 itn.inverse_normalize("ஐம்பது ரூபாய்")                # ₹50
 ```
 
-Grammar compilation takes a couple of minutes per direction; pass `cache_dir` to compile
-once and reload from an OpenFst FAR archive:
+Grammar compilation takes a couple of minutes per direction and needs ~6 GB of free RAM;
+pass `cache_dir` to compile once and reload from an OpenFst FAR archive in under a second
+(see `src/indic_text_normalization/ta/README.md` for measured build, load and per-sentence
+timings on a reference machine):
 
 ```python
 tn = Normalizer(lang="ta", cache_dir="~/.cache/itn-grammars")

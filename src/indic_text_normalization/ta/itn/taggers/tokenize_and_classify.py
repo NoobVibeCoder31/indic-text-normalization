@@ -21,10 +21,10 @@ from indic_text_normalization.ta.itn.taggers.fraction import FractionFst
 from indic_text_normalization.ta.itn.taggers.money import MoneyFst
 from indic_text_normalization.ta.itn.taggers.ordinal import OrdinalFst
 from indic_text_normalization.ta.itn.taggers.prose import ProseFst
-from indic_text_normalization.ta.itn.taggers.punctuation import PunctuationFst
+from indic_text_normalization.ta.punctuation import PunctuationFst
 from indic_text_normalization.ta.itn.taggers.telephone import TelephoneFst
 from indic_text_normalization.ta.itn.taggers.time import TimeFst
-from indic_text_normalization.ta.itn.taggers.word import WordFst
+from indic_text_normalization.ta.word import WordFst
 from indic_text_normalization.ta.tn.taggers.cardinal import CardinalFst as TnCardinalFst
 
 

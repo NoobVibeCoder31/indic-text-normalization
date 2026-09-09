@@ -85,48 +85,45 @@ class MoneyFst(GraphFst):
             1,
         )
 
-        graph_major_only = (
-            optional_graph_negative
-            + currency_major
-            + optional_space
-            + insert_space
-            + integer
-            + optional_slash_dash
-        )
-        graph_major_and_minor = (
-            optional_graph_negative
-            + currency_major
-            + optional_space
-            + insert_space
-            + integer
-            + optional_space
+        # The amount holds a whole copy of the cardinal grammar, so the branches that
+        # share a prefix are factored rather than written out: an alternation of tails
+        # costs one copy where six separate branches cost six.
+        minor_tail = (
+            optional_space
             + pynini.cross(".", " ")
             + fraction
             + insert_space
             + currency_minor
             + optional_slash_dash
+        )
+        graph_currency_first = (
+            optional_graph_negative + currency_major + optional_space + insert_space + integer
+        ) + (
+            optional_slash_dash
+            | minor_tail
+            # A trailing .00 minor part is silent (₹1,999.00 -> ...ரூபாய்).
+            | pynutil.add_weight(
+                pynutil.delete(pynini.union(".00", ".௦௦")) + optional_slash_dash, -0.1
+            )
         )
 
-        graph_major_only_suffix = (
-            optional_graph_negative
-            + integer
-            + insert_space
-            + optional_space
-            + currency_major
-            + optional_slash_dash
-        )
-        graph_major_and_minor_suffix = (
-            optional_graph_negative
-            + integer
-            + optional_space
-            + pynini.cross(".", " ")
-            + fraction
-            + optional_space
-            + insert_space
-            + currency_minor
-            + insert_space
-            + currency_major
-            + optional_slash_dash
+        graph_currency_last = pynutil.add_weight(
+            (optional_graph_negative + integer)
+            + (
+                (insert_space + optional_space + currency_major + optional_slash_dash)
+                | (
+                    optional_space
+                    + pynini.cross(".", " ")
+                    + fraction
+                    + optional_space
+                    + insert_space
+                    + currency_minor
+                    + insert_space
+                    + currency_major
+                    + optional_slash_dash
+                )
+            ),
+            0.5,
         )
 
         # ₹5 கோடி style: the amount carries an Indian quantity word, and the
@@ -207,18 +204,6 @@ class MoneyFst(GraphFst):
             + pynutil.delete("/-")
         )
 
-        # A trailing .00 minor part is silent (₹1,999.00 -> ...ரூபாய்).
-        delete_zero_frac = pynutil.delete(pynini.union(".00", ".௦௦"))
-        graph_zero_frac = (
-            optional_graph_negative
-            + currency_major
-            + optional_space
-            + insert_space
-            + integer
-            + delete_zero_frac
-            + optional_slash_dash
-        )
-
         # ₹.50 reads as paise only (symbol currencies only: Rs./ரூ. own the dot).
         # Every single-character symbol in the table, so a new row needs no edit here; the
         # multi-character codes Rs./ரூ. are excluded because they own the dot themselves.
@@ -276,15 +261,13 @@ class MoneyFst(GraphFst):
 
         graph_currencies = (
             pynutil.add_weight(graph_major_kku, -0.1)
-            | graph_major_only
-            | graph_major_and_minor
+            | graph_currency_first
             | pynutil.add_weight(graph_quantity, -0.2)
             | pynutil.add_weight(graph_long_fraction, 0.2)
             | pynutil.add_weight(graph_slash_rupee, -0.1)
-            | pynutil.add_weight(graph_zero_frac, -0.1)
             | pynutil.add_weight(graph_bare_paise, -0.1)
             | pynutil.add_weight(negative_after_currency, 0.1)
-            | pynutil.add_weight(graph_major_only_suffix | graph_major_and_minor_suffix, 0.5)
+            | graph_currency_last
         )
 
         graph = graph_currencies.optimize()

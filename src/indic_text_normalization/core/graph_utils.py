@@ -65,6 +65,13 @@ MIN_NEG_WEIGHT = -0.0001
 MIN_POS_WEIGHT = 0.0001
 
 
+def unweighted(fst: pynini.Fst) -> pynini.Fst:
+    """
+    Drop every arc weight, leaving only the consuming grammar's own weights to rank paths.
+    """
+    return pynini.arcmap(fst.optimize(), map_type="rmweight").optimize()
+
+
 def generator_main(file_name: str, graphs: dict[str, pynini.Fst]) -> None:
     """
     Export graphs as an OpenFst finite state archive (FAR) file.

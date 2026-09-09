@@ -35,12 +35,12 @@ from indic_text_normalization.ta.tn.taggers.fraction import FractionFst
 from indic_text_normalization.ta.tn.taggers.measure import MeasureFst
 from indic_text_normalization.ta.tn.taggers.money import MoneyFst
 from indic_text_normalization.ta.tn.taggers.ordinal import OrdinalFst
-from indic_text_normalization.ta.tn.taggers.punctuation import PunctuationFst
+from indic_text_normalization.ta.punctuation import PunctuationFst
 from indic_text_normalization.ta.tn.taggers.range import RangeFst
 from indic_text_normalization.ta.tn.taggers.telephone import TelephoneFst
 from indic_text_normalization.ta.tn.taggers.time import TimeFst
 from indic_text_normalization.ta.tn.taggers.whitelist import WhiteListFst
-from indic_text_normalization.ta.tn.taggers.word import WordFst
+from indic_text_normalization.ta.word import WordFst
 
 
 class ClassifyFst(GraphFst):
@@ -62,7 +62,7 @@ class ClassifyFst(GraphFst):
         ordinal = OrdinalFst(cardinal=cardinal, deterministic=deterministic)
         number_range = RangeFst(cardinal=cardinal, deterministic=deterministic)
         whitelist = WhiteListFst(deterministic=deterministic)
-        punctuation = PunctuationFst(deterministic=deterministic)
+        punctuation = PunctuationFst(speak_equals=True, deterministic=deterministic)
 
         classify = (
             pynutil.add_weight(whitelist.fst, 1.01)
@@ -78,7 +78,9 @@ class ClassifyFst(GraphFst):
             | pynutil.add_weight(ordinal.fst, 1.1)
         )
 
-        word_graph = WordFst(punctuation=punctuation, deterministic=deterministic).fst
+        word_graph = WordFst(
+            punctuation=punctuation, pass_urls=True, deterministic=deterministic
+        ).fst
 
         punct = (
             pynutil.insert("tokens { ")

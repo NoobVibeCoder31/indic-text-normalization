@@ -15,7 +15,9 @@ from indic_text_normalization.ta.constants import (
     TA_TO_ASCII_DIGIT,
     GraphFst,
 )
+from indic_text_normalization.ta.itn.ambiguity import LICENSED, ambiguous_words
 from indic_text_normalization.ta.itn.fused import half_form_rows
+from indic_text_normalization.ta.itn.scales import expanded_scale_words
 from indic_text_normalization.ta.tn.taggers.cardinal import CardinalFst as TnCardinalFst
 from indic_text_normalization.ta.utils import get_abs_path
 
@@ -81,13 +83,6 @@ _TENS_STEMS = [
     "எண்பத்து",
     "தொண்ணூற்று",
 ]
-
-
-def _unweighted(fst: pynini.Fst) -> pynini.Fst:
-    """
-    Drop every arc weight, so only the ITN grammar's own weights rank a reading.
-    """
-    return pynini.arcmap(fst.optimize(), map_type="rmweight").optimize()
 
 
 def _boundary_rewrite(pairs: list[tuple[str, str]]) -> pynini.Fst:
@@ -175,30 +170,36 @@ def _hundreds_split() -> pynini.Fst:
     return pynini.compose(domain, rewrite).optimize()
 
 
-def _thousand_scaled(plain: pynini.Fst) -> pynini.Fst:
+def _scale_expanded(plain: pynini.Fst) -> pynini.Fst:
     """
-    Expand a fractional thousand into digits, e.g. ஐந்து புள்ளி ஐந்து ஆயிரம் -> 5500.
+    Multiply out a scale word small enough for it, e.g. ஐந்து புள்ளி ஐந்து ஆயிரம் -> 5500.
     """
-    # The fractional digits shift left by three; the padding follows the matched width.
-    shifted = pynini.union(
-        (plain @ DIGIT) + pynutil.insert("00"),
-        (plain @ (DIGIT + DIGIT)) + pynutil.insert("0"),
-        plain @ (DIGIT + DIGIT + DIGIT),
-    )
-    graph = (
-        (plain @ pynini.closure(DIGIT, 1, 3))
-        + pynutil.delete(" புள்ளி ")
-        + shifted
-        + pynutil.delete(" ஆயிரம்")
-    )
-    # The fused half/quarter words scale the same way: ஒன்றரை ஆயிரம் -> 1500.
-    fused = pynini.union(
-        *[
-            pynini.cross(f"{word} ஆயிரம்", str(int(ip + fp.ljust(3, "0"))))
-            for word, ip, fp in half_form_rows()
-        ]
-    )
-    return (graph | fused).optimize()
+    graphs = []
+    for word, zeros in expanded_scale_words():
+        # The fractional digits shift left by the scale's zero count, so the padding
+        # inserted after them follows the width that matched.
+        shifted = pynini.union(
+            *[
+                (plain @ (DIGIT**width)) + pynutil.insert("0" * (zeros - width))
+                for width in range(1, zeros + 1)
+            ]
+        )
+        graphs.append(
+            (plain @ pynini.closure(DIGIT, 1, 3))
+            + pynutil.delete(" புள்ளி ")
+            + shifted
+            + pynutil.delete(f" {word}")
+        )
+        # The fused half/quarter words scale the same way: ஒன்றரை ஆயிரம் -> 1500.
+        graphs.append(
+            pynini.union(
+                *[
+                    pynini.cross(f"{fused} {word}", str(int(ip + fp.ljust(zeros, "0"))))
+                    for fused, ip, fp in half_form_rows()
+                ]
+            )
+        )
+    return pynini.union(*graphs).optimize()
 
 
 class CardinalFst(GraphFst):
@@ -215,12 +216,9 @@ class CardinalFst(GraphFst):
         # The TN grammar emits a leading space before நூற்று forms, so allow inserting one.
         to_ascii = pynini.closure(pynini.union(TA_TO_ASCII_DIGIT, DIGIT))
         optional_leading_space = pynini.closure(pynutil.insert(" "), 0, 1) + pynini.closure(CHAR)
-        # The TN weights (a bonus per deleted zero, another for the teens table) are
-        # meaningless in this direction and would otherwise decide ITN token boundaries:
-        # ஐந்து கோடி carries -0.7 and outbids reading the whole amount as one number.
-        inverted = _unweighted(
+        inverted = (
             optional_leading_space @ pynini.invert(tn_cardinal.itn_input_graph) @ to_ascii
-        )
+        ).optimize()
 
         # Spoken variants with spaced compounds, adapted from indic-num2words.
         variants = pynini.string_file(get_abs_path("data/numbers/itn_variants.tsv")).optimize()
@@ -236,20 +234,20 @@ class CardinalFst(GraphFst):
             pre_map @ accepted,
             _hundreds_split() @ accepted,
         ).optimize()
-        self.words_to_digits = pynini.union(plain, _thousand_scaled(plain)).optimize()
+        self.words_to_digits = pynini.union(plain, _scale_expanded(plain)).optimize()
 
         # ஒரு / ஓர் are also the indefinite article, so they count as numbers only
         # where a currency, unit or clock word makes the numeric reading explicit.
-        articles = pynini.string_file(get_abs_path("data/numbers/itn_articles.tsv")).optimize()
+        articles = pynini.string_map(ambiguous_words(LICENSED)).optimize()
         self.words_to_digits_with_article = pynini.union(self.words_to_digits, articles).optimize()
 
         # Case-suffixed numbers keep their suffix: இரண்டாயிரத்து இருபத்துநான்கில் -> 2024ல்.
         suffixed_out = pynini.closure(pynini.union(TA_TO_ASCII_DIGIT, DIGIT), 1) + pynini.closure(
             TA_LETTER, 1
         )
-        inverted_suffixed = _unweighted(
+        inverted_suffixed = (
             pynini.invert(tn_cardinal.itn_suffixed_graph) @ suffixed_out
-        )
+        ).optimize()
         self.suffixed_words_to_digits = pynini.union(
             pynutil.add_weight(inverted_suffixed, -0.01), pre_map @ inverted_suffixed
         ).optimize()

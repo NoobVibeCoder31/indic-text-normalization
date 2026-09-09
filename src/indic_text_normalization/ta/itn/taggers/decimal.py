@@ -14,11 +14,8 @@ from indic_text_normalization.ta.constants import (
     insert_space,
 )
 from indic_text_normalization.ta.itn.fused import half_form_rows, quarter_form_graph
+from indic_text_normalization.ta.itn.scales import kept_scale_words
 from indic_text_normalization.ta.itn.taggers.cardinal import CardinalFst
-
-# Scale words kept in the written form after a decimal amount (5.5 லட்சம்); ஆயிரம் is
-# absent because the cardinal grammar expands it (ஐந்து புள்ளி ஐந்து ஆயிரம் -> 5500).
-QUANTITY_WORDS = ["கோடி", "இலட்சம்", "லட்சம்", "மில்லியன்", "பில்லியன்", "டிரில்லியன்"]
 
 
 class DecimalFst(GraphFst):
@@ -64,7 +61,7 @@ class DecimalFst(GraphFst):
         quantity = (
             pynutil.insert(' quantity: "')
             + pynutil.delete(" ")
-            + pynini.union(*QUANTITY_WORDS)
+            + pynini.union(*kept_scale_words())
             + pynutil.insert('"')
         )
         graph |= pynutil.add_weight(

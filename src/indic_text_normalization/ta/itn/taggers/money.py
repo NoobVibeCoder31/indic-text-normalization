@@ -7,8 +7,8 @@ from pynini.lib import pynutil
 
 from indic_text_normalization.ta.constants import DIGIT, GraphFst, delete_space
 from indic_text_normalization.ta.itn.fused import half_form_rows, quarter_form_graph
+from indic_text_normalization.ta.itn.scales import kept_scale_words
 from indic_text_normalization.ta.itn.taggers.cardinal import CardinalFst
-from indic_text_normalization.ta.itn.taggers.decimal import QUANTITY_WORDS
 from indic_text_normalization.ta.utils import get_abs_path
 
 
@@ -69,7 +69,7 @@ class MoneyFst(GraphFst):
             pynutil.insert('integer_part: "')
             + amount_digits
             + pynini.accep(" ")
-            + pynini.union(*QUANTITY_WORDS)
+            + pynini.union(*kept_scale_words())
             + pynutil.insert('"')
         )
         graph_quantity = (

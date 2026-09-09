@@ -21,3 +21,6 @@ build/
 benchmarks/reports/
 benchmarks/.far_cache/
 temp/
+
+# Verbose engineering log behind CHANGELOG.md; not part of the published history.
+dev-changelog.md

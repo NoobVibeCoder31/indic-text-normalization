@@ -22,6 +22,7 @@ from indic_text_normalization.ta.constants import (
     TA_DIGIT,
     GraphFst,
     insert_space,
+    unweighted,
 )
 from indic_text_normalization.ta.utils import get_abs_path
 
@@ -423,9 +424,12 @@ class CardinalFst(GraphFst):
         not_leading_zero = pynini.difference(
             pynini.closure(CHAR), pynini.accep("பூஜ்யம் ") + pynini.closure(CHAR)
         )
-        self.itn_input_graph = (
+        # Exported to ITN, which must not inherit the weights above: they are TN's own
+        # preferences (a bonus per deleted zero, another for the teens table) and would
+        # otherwise decide ITN token boundaries.
+        self.itn_input_graph = unweighted(
             pynini.union(raw_final_graph, final_graph) @ not_leading_zero
-        ).optimize()
+        )
 
         # A sign is a field, so the verbalizer renders it and ITN can invert it.
         optional_sign_graph = pynini.closure(
@@ -504,10 +508,11 @@ class CardinalFst(GraphFst):
         # Emphatic தான் simply attaches.
         suffixed_attach |= final_graph + pynini.accep("தான்")
 
-        # ITN inverts this union to recover 2024ல் from இரண்டாயிரத்து இருபத்துநான்கில்.
-        self.itn_suffixed_graph = pynini.union(
-            suffixed_locative, suffixed_oblique, suffixed_attach
-        ).optimize()
+        # ITN inverts this union to recover 2024ல் from இரண்டாயிரத்து இருபத்துநான்கில்;
+        # unweighted for the same reason as itn_input_graph.
+        self.itn_suffixed_graph = unweighted(
+            pynini.union(suffixed_locative, suffixed_oblique, suffixed_attach)
+        )
 
         tagged_integer = (
             self.final_graph

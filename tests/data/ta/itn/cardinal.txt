@@ -82,3 +82,6 @@
 ஆயிரத்தொன்று~1001
 நூறுக்கு~100க்கு
 ஐந்துகள்~5கள்
+# review-fix R2: a spoken sign inverts back to + / -, so +5 round-trips as -5 does
+பிளஸ் ஐந்து~+5
+பிளஸ் ஐம்பது~+50

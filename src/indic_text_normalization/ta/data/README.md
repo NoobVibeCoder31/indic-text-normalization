@@ -14,9 +14,9 @@ column, so provenance is recorded here per table.
 | `numbers/hundreds_combined.tsv` | ௨-௮ → இருநூற்று … எண்ணூற்று | Rewritten here: joined sandhi stems replace Kenpath's bare prefixes (முன்/நான்/…), which produced wrong forms like "நான் நூற்று" |
 | `numbers/thousands.tsv` | thousands forms | Kenpath; no longer read by the grammar (scale words are listed in `tn/taggers/decimal.py`) |
 | `numbers/itn_variants.tsv` | spaced spoken forms 0-99 → ASCII digits | Adapted from indic-num2words (`NUM_DICT["ta"]`); accepted as ITN input only |
-| `numbers/itn_articles.tsv` | ஒரு / ஓர் → 1 | Split out of `itn_variants.tsv`: these are also the indefinite article, so they count as numbers only inside a money/time reading |
 | `numbers/itn_half_forms.tsv` | fused fractional words → integer/fraction digits (ஒன்றரை → 1.5) | Written here; 3 columns (word, integer part, fractional part), ITN input only |
-| `numbers/itn_ambiguous_words.tsv` | number words that are also ordinary words | Written here; col 2 is the reason. ITN keeps these as words when another Tamil word follows (கால் வலிக்கிறது) |
+| `numbers/itn_ambiguous.tsv` | number words that are also ordinary words: word → condition → reading | Written here. `licensed` (ஒரு/ஓர், also the indefinite article) counts as a number only inside a money/clock reading; `standalone` (கால்/அரை/முக்கால்) only when no Tamil word follows. See `itn/ambiguity.py` for why the two need different mechanisms |
+| `numbers/scale_words.tsv` | scale word → trailing zeros → expand\|keep | Written here. `expand` multiplies the amount out (ஐந்து புள்ளி ஐந்து ஆயிரம் → 5500); `keep` leaves the written idiom (5.5 லட்சம்) |
 | `numbers/itn_prose_phrases.tsv` | phrases where a numeral is a pronoun/idiom | Written here; col 2 is the reason. Protected verbatim by the ITN prose tagger |
 | `ordinal/*.tsv` | ordinal suffixes and exceptions | Kenpath; **not read by any grammar** — both taggers derive ஐந்தாவது-style stems morphologically. Kept for provenance only |
 | `date/{days,months,year_suffix}.tsv` | day/month numerals → words | Kenpath |

@@ -5,7 +5,12 @@ ITN tagger converting spoken Tamil times to digits.
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.ta.constants import GraphFst, delete_space
+from indic_text_normalization.ta.constants import (
+    CLOCK_MAX_HOUR,
+    CLOCK_MAX_MINUTE,
+    GraphFst,
+    delete_space,
+)
 from indic_text_normalization.ta.itn.fused import (
     FRACTION_MINUTES,
     half_form_rows,
@@ -37,8 +42,8 @@ class TimeFst(GraphFst):
 
         # 24:00 and 10:60 are not clock readings, so the fields are range-bound here.
         number = cardinal.words_to_digits_with_article
-        hour_value = number @ pynini.union(*[str(h) for h in range(24)])
-        minute_value = number @ pynini.union(*[str(m) for m in range(60)])
+        hour_value = number @ pynini.union(*[str(h) for h in range(CLOCK_MAX_HOUR + 1)])
+        minute_value = number @ pynini.union(*[str(m) for m in range(CLOCK_MAX_MINUTE + 1)])
 
         hours = pynutil.insert('hours: "') + hour_value + pynutil.insert('"')
         minutes = pynutil.insert(' minutes: "') + minute_value + pynutil.insert('"')

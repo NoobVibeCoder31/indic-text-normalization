@@ -22,3 +22,6 @@
 # second pass spoke it as கூட்டல் and broke idempotency)
 +0.0~பிளஸ் பூஜ்யம் புள்ளி பூஜ்யம்
 +5.5~பிளஸ் ஐந்து புள்ளி ஐந்து
+# review-fix R2: the sign is a field, so it survives the quantity path too
++5 லட்சம்~பிளஸ் ஐந்து லட்சம்
+-5 லட்சம்~மைனஸ் ஐந்து லட்சம்

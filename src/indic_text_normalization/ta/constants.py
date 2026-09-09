@@ -77,6 +77,9 @@ from indic_text_normalization.core.graph_utils import (
     generator_main as generator_main,
 )
 from indic_text_normalization.core.graph_utils import (
+    unweighted as unweighted,
+)
+from indic_text_normalization.core.graph_utils import (
     insert_space as insert_space,
 )
 from indic_text_normalization.core.scripts import script_digit_fsts
@@ -100,6 +103,12 @@ INPUT_LOWER_CASED = "lower_cased"
 MINUS_WORD = "மைனஸ்"
 MINUS = pynini.union(" மைனஸ் ").optimize()
 PLUS_WORD = "பிளஸ்"
+
+# Clock bounds for the ITN direction. TN's data/time/hours.tsv still lists hour 24
+# because it accepts the written 24:00; ITN stops at 23 because இருபத்துநான்கு மணி reads
+# as a duration, not a clock time.
+CLOCK_MAX_HOUR = 23
+CLOCK_MAX_MINUTE = 59
 
 # Fractional-hour words used by the time grammar.
 TA_KAAL = "கால்"
