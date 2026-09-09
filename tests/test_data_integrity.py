@@ -42,3 +42,42 @@ class TestDataIntegrity:
         The data tree is non-trivial.
         """
         assert len(TSV_FILES) > 15
+
+
+class TestMoneyTablePairing:
+    """
+    Every minor unit TN can emit must invert to its own major currency's symbol.
+    """
+
+    def _rows(self, name: str) -> list[list[str]]:
+        path = DATA_ROOT / "money" / name
+        return [
+            line.split("\t")
+            for line in path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+
+    def test_every_major_minor_pair_is_invertible(self) -> None:
+        """
+        Each major/minor pair resolves to a symbol, so ITN can pair the two words.
+        """
+        symbol_of = dict(self._rows("currency_itn.tsv"))
+        missing = [
+            (major, minor)
+            for major, minor in self._rows("major_minor_currencies.tsv")
+            if major not in symbol_of
+        ]
+        assert not missing, f"majors with no ITN symbol: {missing}"
+
+    def test_extras_table_adds_no_derivable_row(self) -> None:
+        """
+        The extras table holds only what the major/minor pairing cannot supply.
+        """
+        symbol_of = dict(self._rows("currency_itn.tsv"))
+        derived = {
+            (minor, symbol_of[major])
+            for major, minor in self._rows("major_minor_currencies.tsv")
+            if major in symbol_of
+        }
+        redundant = [row for row in self._rows("minor_unit_itn.tsv") if tuple(row) in derived]
+        assert not redundant, f"already derived from major_minor_currencies.tsv: {redundant}"

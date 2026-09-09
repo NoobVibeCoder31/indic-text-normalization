@@ -15,19 +15,14 @@
 import pynini
 from pynini.lib import pynutil
 
+from indic_text_normalization.core.utils import load_labels
 from indic_text_normalization.ta.constants import NOT_QUOTE, SIGMA, SPACE, GraphFst
+from indic_text_normalization.ta.utils import get_abs_path
 
-major_minor_currencies = {
-    "ரூபாய்": "பைசா",
-    "பவுண்ட்": "பென்ஸ்",
-    "வான்": "ஜியோன்",
-    "டாலர்": "சென்ட்",
-    "லீரா": "குருஸ்",
-    "டாக்கா": "பைசா",
-    "யென்": "சென்",
-    "நைரா": "கோபோ",
-    "யூரோ": "சென்ட்",
-}
+# Single source of truth for both directions; ITN inverts these same pairs.
+major_minor_currencies = dict(
+    load_labels(get_abs_path("data/money/major_minor_currencies.tsv"), min_fields=2)
+)
 
 
 class MoneyFst(GraphFst):

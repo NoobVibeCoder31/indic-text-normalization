@@ -15,13 +15,13 @@ second under the first's memory pressure::
 
 import argparse
 import logging
-import os
 import resource
 import statistics
 import time
 from collections.abc import Callable
 
 from indic_text_normalization import InverseNormalizer, Normalizer
+from indic_text_normalization.core.cache import far_path
 
 # Pinned so a future run compares the same sentences. Do not edit casually: changing a
 # sample invalidates comparison with the recorded baseline.
@@ -58,10 +58,10 @@ def build(direction: str, cache_dir: str) -> None:
         Normalizer(cache_dir=cache_dir, overwrite_cache=True)
     else:
         InverseNormalizer(cache_dir=cache_dir, overwrite_cache=True)
-    far = os.path.join(cache_dir, f"ta_{direction}.far")
+    far = far_path(cache_dir, "ta", direction)
     print(
         f"{direction}\tbuild={time.perf_counter() - start:.1f}s"
-        f"\tpeak={_peak_mb():.0f}MB\tfar={os.path.getsize(far) / 1024 / 1024:.0f}MB"
+        f"\tpeak={_peak_mb():.0f}MB\tfar={far.stat().st_size / 1024 / 1024:.0f}MB"
     )
 
 

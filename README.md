@@ -113,9 +113,11 @@ uv run ruff check
 uv run mypy
 ```
 
-See `CLAUDE.md` for the full project rules and `NOTICE` for third-party attributions
-(NeMo-text-processing, Kenpath indic-text-normalization; spoken-number variants adapted
-from [indic-num2words](https://github.com/raj-sutariya/indic-num2words)).
+Licensed under the Apache License 2.0 (`LICENSE`). The grammars build on
+NeMo-text-processing (NVIDIA), Kenpath indic-text-normalization, and Google/Thrax by way
+of NeMo — `NOTICE` records what came from where.
+
+See `CLAUDE.md` for the full project rules.
 
 ## Benchmarks
 

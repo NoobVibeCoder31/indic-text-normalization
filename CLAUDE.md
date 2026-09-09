@@ -80,6 +80,6 @@ Project rules for Claude Code and contributors. This is a **Python library for n
 ## Workflow rules
 
 - Branch from `master`; never commit directly to `master`. Commit messages: imperative mood, ≤ 72-char subject.
-- Never commit: virtualenvs, `__pycache__`, `.pytest_cache`, large corpora (> 1 MB test data needs discussion first), scraped text of unclear license (repo is MIT — all included data must be MIT-compatible).
+- Never commit: virtualenvs, `__pycache__`, `.pytest_cache`, large corpora (> 1 MB test data needs discussion first), scraped text of unclear license (repo is Apache-2.0 — all included data must be Apache-2.0-compatible).
 - When adding or changing a mapping, cite the authoritative source (Unicode chart, script grammar reference) in the PR description.
 - Do not add new runtime dependencies, new scripts, or new public API without flagging it explicitly in the PR/summary.

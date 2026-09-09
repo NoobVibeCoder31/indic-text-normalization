@@ -24,7 +24,22 @@ class MoneyFst(GraphFst):
         super().__init__(name="money", kind="classify", deterministic=deterministic)
 
         major_rows = load_labels(get_abs_path("data/money/currency_itn.tsv"), min_fields=2)
-        minor_rows = load_labels(get_abs_path("data/money/minor_unit_itn.tsv"), min_fields=2)
+        # Every minor unit TN can emit inverts to its major currency's symbol, derived from
+        # the same table TN verbalizes from so the two directions cannot drift apart. The
+        # extras table adds only what that pairing cannot give: plurals and ₹ காசு.
+        major_to_symbol = dict(major_rows)
+        minor_rows = [
+            [minor, major_to_symbol[major]]
+            for major, minor in load_labels(
+                get_abs_path("data/money/major_minor_currencies.tsv"), min_fields=2
+            )
+            if major in major_to_symbol
+        ]
+        minor_rows += [
+            row
+            for row in load_labels(get_abs_path("data/money/minor_unit_itn.tsv"), min_fields=2)
+            if tuple(row) not in {tuple(r) for r in minor_rows}
+        ]
         currency = pynini.string_map(major_rows)
         minor = pynini.string_map(minor_rows)
         # A minor unit belongs to one major currency: பைசா is rupees, சென்ட் is dollars.

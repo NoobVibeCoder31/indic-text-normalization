@@ -66,6 +66,18 @@ _PRE_CLEAN = str.maketrans(
 _JOINER_BETWEEN_DIGITS = re.compile(r"(?<=\d)[\u200b\u2060]+(?=\d)")
 
 
+def _class_names(tokens: list[Token]) -> str:
+    """
+    Semiotic class names in ``tokens``, for logging a failure without its values.
+    """
+    names: list[str] = []
+    for token in tokens:
+        # Tagged tokens nest as ``tokens { <class> { ... } }``, so the class is one level in.
+        for key, value in token.items():
+            names.extend(value if isinstance(value, dict) else [key])
+    return ", ".join(names) or "none"
+
+
 class NormalizationEngine:
     """
     Run text through a classify FST and a verbalize FST.
@@ -97,8 +109,10 @@ class NormalizationEngine:
         try:
             tagged_lattice = escaped @ self.classify
             tagged_text = pynini.shortestpath(tagged_lattice, nshortest=1, unique=True).string()
-        except Exception:
-            logger.warning("Failed to tag text: %s", text)
+        except Exception as exc:
+            # Warnings stay content-free; callers normalize phone numbers and money.
+            logger.warning("Failed to tag text (%d chars): %s", len(text), type(exc).__name__)
+            logger.debug("Failed to tag text: %s", text)
             return text
 
         try:
@@ -107,8 +121,9 @@ class NormalizationEngine:
             parser(tagged_text)
             tokens = parser.parse()
             output = self._verbalize(tokens, tagged_text)
-        except Exception:
-            logger.warning("Failed to verbalize text: %s", text)
+        except Exception as exc:
+            logger.warning("Failed to verbalize text (%d chars): %s", len(text), type(exc).__name__)
+            logger.debug("Failed to verbalize text: %s", text)
             return text
         if output is None:
             return text
@@ -130,11 +145,13 @@ class NormalizationEngine:
                     chosen.append(candidate)
                     break
             else:
-                logger.warning("No verbalization found for: %s", tagged_text)
+                logger.warning("No verbalization found for class: %s", _class_names([token]))
+                logger.debug("No verbalization found for: %s", tagged_text)
                 return None
         lattice = pynini.escape("".join(chosen)) @ self.verbalize
         if lattice.num_states() == 0:
-            logger.warning("No verbalization found for: %s", tagged_text)
+            logger.warning("No verbalization found for classes: %s", _class_names(tokens))
+            logger.debug("No verbalization found for: %s", tagged_text)
             return None
         path: str = pynini.shortestpath(lattice, nshortest=1, unique=True).string()
         return path

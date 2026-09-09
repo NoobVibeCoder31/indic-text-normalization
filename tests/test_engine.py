@@ -2,11 +2,18 @@
 Engine-level regression tests: verbalization cost, pre-cleaning and output spacing.
 """
 
+import logging
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
+import pynini
+import pytest
+
 from indic_text_normalization import Normalizer
+from indic_text_normalization.core.engine import NormalizationEngine
+
+ENGINE_LOGGER = "indic_text_normalization.core.engine"
 
 
 class TestEngine:
@@ -67,3 +74,51 @@ class TestEngine:
         assert ta_tn.normalize("‏5") == "ஐந்து"
         assert ta_tn.normalize("5­0") == "ஐம்பது"
         assert ta_tn.normalize("5‌6") == "5‌6"
+
+
+class TestFailureLogging:
+    """
+    A failure names its shape, never the caller's text: inputs are phone numbers and money.
+    """
+
+    PHONE = "9876543210"
+
+    def test_tagging_failure_logs_only_metadata(self, caplog: pytest.LogCaptureFixture) -> None:
+        """
+        An untaggable input warns with a length and an exception type, not the text.
+        """
+        engine = NormalizationEngine(pynini.accep("zzz"), pynini.accep("zzz"))
+        with caplog.at_level(logging.WARNING, logger=ENGINE_LOGGER):
+            assert engine.normalize(self.PHONE) == self.PHONE
+        assert caplog.records
+        assert all(self.PHONE not in r.getMessage() for r in caplog.records)
+        assert "10 chars" in caplog.records[0].getMessage()
+
+    def test_payload_is_logged_only_at_debug(self, caplog: pytest.LogCaptureFixture) -> None:
+        """
+        The text reaches the log only when the caller opts in by enabling DEBUG.
+        """
+        engine = NormalizationEngine(pynini.accep("zzz"), pynini.accep("zzz"))
+        with caplog.at_level(logging.DEBUG, logger=ENGINE_LOGGER):
+            engine.normalize(self.PHONE)
+        by_level: dict[int, list[str]] = {logging.DEBUG: [], logging.WARNING: []}
+        for record in caplog.records:
+            by_level.setdefault(record.levelno, []).append(record.getMessage())
+        assert any(self.PHONE in message for message in by_level[logging.DEBUG])
+        assert by_level[logging.WARNING]
+        assert all(self.PHONE not in message for message in by_level[logging.WARNING])
+
+    def test_missing_verbalization_logs_the_class_not_the_value(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """
+        An unverbalizable token warns with its semiotic class, not the tagged value.
+        """
+        tagged = f'tokens {{ cardinal {{ integer: "{self.PHONE}" }} }}'
+        engine = NormalizationEngine(pynini.cross(self.PHONE, tagged), pynini.accep("unrelated"))
+        with caplog.at_level(logging.WARNING, logger=ENGINE_LOGGER):
+            assert engine.normalize(self.PHONE) == self.PHONE
+        assert caplog.records
+        message = caplog.records[0].getMessage()
+        assert "cardinal" in message
+        assert self.PHONE not in message

@@ -13,7 +13,6 @@ column, so provenance is recorded here per table.
 | `numbers/hundreds_exact.tsv` | ௨௦௦-௯௦௦ → இருநூறு … தொள்ளாயிரம் | Kenpath |
 | `numbers/hundreds_combined.tsv` | ௨-௮ → இருநூற்று … எண்ணூற்று | Rewritten here: joined sandhi stems replace Kenpath's bare prefixes (முன்/நான்/…), which produced wrong forms like "நான் நூற்று" |
 | `numbers/thousands.tsv` | thousands forms | Kenpath; no longer read by the grammar (scale words are listed in `tn/taggers/decimal.py`) |
-| `numbers/itn_variants.tsv` | spaced spoken forms 0-99 → ASCII digits | Adapted from indic-num2words (`NUM_DICT["ta"]`); accepted as ITN input only |
 | `numbers/itn_half_forms.tsv` | fused fractional words → integer/fraction digits (ஒன்றரை → 1.5) | Written here; 3 columns (word, integer part, fractional part), ITN input only |
 | `numbers/itn_ambiguous.tsv` | number words that are also ordinary words: word → condition → reading | Written here. `licensed` (ஒரு/ஓர், also the indefinite article) counts as a number only inside a money/clock reading; `standalone` (கால்/அரை/முக்கால்) only when no Tamil word follows. See `itn/ambiguity.py` for why the two need different mechanisms |
 | `numbers/scale_words.tsv` | scale word → trailing zeros → expand\|keep | Written here. `expand` multiplies the amount out (ஐந்து புள்ளி ஐந்து ஆயிரம் → 5500); `keep` leaves the written idiom (5.5 லட்சம்) |
@@ -22,9 +21,9 @@ column, so provenance is recorded here per table.
 | `date/{days,months,year_suffix}.tsv` | day/month numerals → words | Kenpath |
 | `time/{hours,minutes,seconds}.tsv` | hours 0-24, minutes/seconds 1-59 → words | Kenpath; the `60` minute/second rows were removed (10:60 is not a time). TN only — the ITN time tagger reads the cardinal grammar and range-binds hours to 0-23 and minutes/seconds to 0-59 itself |
 | `money/currency.tsv` | symbol/code → currency word | Kenpath; ரூ./ரூ rows added here |
-| `money/major_minor_currencies.tsv` | major → minor unit word | Kenpath; **not read by any grammar** — the TN money verbalizer carries the mapping inline. Kept for provenance only |
+| `money/major_minor_currencies.tsv` | major → minor unit word | Kenpath; read by both directions — the TN money verbalizer emits these pairs and the ITN money tagger inverts them against `currency_itn.tsv` |
 | `money/currency_itn.tsv` | currency word → canonical symbol | Written here for ITN; one row per output of `money/currency.tsv` plus plurals. பவுண்டு is absent on purpose — that is the mass pound in `measure/unit.tsv`, the currency word is பவுண்ட் |
-| `money/minor_unit_itn.tsv` | minor unit word → major currency symbol | Written here for ITN; ஐம்பது பைசா → ₹0.50, ஐம்பது சென்ட் → $0.50 |
+| `money/minor_unit_itn.tsv` | extra minor-unit word → symbol | Written here; only the rows `major_minor_currencies.tsv` cannot supply (plurals, and ₹ காசு) |
 | `fraction/denominator_il.tsv` | locative -இல் form → cardinal word | Written here; the 28 explicit forms of the TN fraction verbalizer. The ITN tagger also applies the regular locative, so any denominator round-trips |
 | `measure/unit.tsv` | unit abbreviation → spoken unit | Kenpath; `st` (stone) removed because it swallowed English ordinals (1st); `மீ`, `லி`, `சத` rows added |
 | `telephone/*.tsv` | digit words and context cues | Kenpath; only `number.tsv` is read. `mobile_context.tsv` / `landline_context.tsv` are **not read by any grammar** (they would drive OTP/PIN readings, which are unimplemented) |

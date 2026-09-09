@@ -19,7 +19,6 @@ from indic_text_normalization.ta.itn.ambiguity import LICENSED, ambiguous_words
 from indic_text_normalization.ta.itn.fused import half_form_rows
 from indic_text_normalization.ta.itn.scales import expanded_scale_words
 from indic_text_normalization.ta.tn.taggers.cardinal import CardinalFst as TnCardinalFst
-from indic_text_normalization.ta.utils import get_abs_path
 
 # Colloquial (spoken/ASR) forms rewritten to the formal words the grammar knows.
 _COLLOQUIAL = [
@@ -30,12 +29,15 @@ _COLLOQUIAL = [
     ("நாலு", "நான்கு"),
     ("அஞ்சு", "ஐந்து"),
     ("ஒம்பது", "ஒன்பது"),
+    ("பூஜ்ஜியம்", "பூஜ்யம்"),
     ("பன்னெண்டு", "பன்னிரண்டு"),
     ("பன்னிரெண்டு", "பன்னிரண்டு"),
     ("அம்பது", "ஐம்பது"),
     ("ஐநூறு", "ஐந்நூறு"),
     # U+0BA9 TAMIL LETTER NNA spelling of 300 (முந்நூறு is the grammar's form).
     ("முன்னூறு", "முந்நூறு"),
+    # U+0BA9 TAMIL LETTER NNA misspelling of 90 (தொண்ணூறு is the grammar's form).
+    ("தொன்ணூறு", "தொண்ணூறு"),
     ("முன்னூற்று", "முந்நூற்று"),
 ]
 
@@ -85,6 +87,12 @@ _TENS_STEMS = [
 ]
 
 
+# Dependent vowel sign paired with the independent vowel it stands for, used both to
+# fuse a spaced tens+digit pair and to split a solid one back apart.
+_VOWEL_SIGNS = [("ொ", "ஒ"), ("ி", "இ"), ("ெ", "எ"), ("ே", "ஏ"), ("ை", "ஐ"), ("ா", "ஆ")]
+_VOWELS = [vowel for _, vowel in _VOWEL_SIGNS]
+
+
 def _boundary_rewrite(pairs: list[tuple[str, str]]) -> pynini.Fst:
     """
     Word-boundary-anchored rewrite for the given (spoken, formal) pairs.
@@ -117,27 +125,40 @@ def _spoken_pre_map() -> pynini.Fst:
     nju = pynini.cdrewrite(
         pynini.cross("ஞ்சு", "ைந்து"), pynini.union("த", "ன"), pynini.union("[EOS]", " "), SIGMA
     )
+    # A -தி joint written solid onto a vowel-initial digit takes a ய glide
+    # (எண்பத்தியொன்று) or fuses ந to ன (எண்பத்தினான்கு); split it back to the spaced
+    # reading so the joining stages below can rebuild the grammar's own sandhi form.
+    stems = pynini.union(*_TENS_STEMS)
+    glide_split = pynini.union(
+        *[pynini.cross(f"ய{sign}", f" {vowel}") for sign, vowel in _VOWEL_SIGNS]
+    )
+    unfuse = (
+        pynini.cdrewrite(glide_split, stems, "", SIGMA)
+        @ pynini.cdrewrite(pynini.cross("ன", " ந"), stems, "ா", SIGMA)
+        @ pynini.cdrewrite(pynutil.insert(" "), stems, pynini.union(*_VOWELS), SIGMA)
+    )
+
     # A spaced tens+digit pair joins into the fused sandhi form the grammar
     # accepts: consonant-initial digits join directly, vowel-initial digits
     # merge the tens-final ு with their initial vowel (நாற்பத்து ஒன்று -> நாற்பத்தொன்று).
     stems_lopped = pynini.union(*[stem[:-1] for stem in _TENS_STEMS])
     join_consonant = pynini.cdrewrite(
         pynutil.delete(" "),
-        edge + pynini.union(*_TENS_STEMS),
+        edge + stems,
         pynini.union("மூன்று", "நான்கு"),
         SIGMA,
     )
-    vowel_merge = pynini.union(
-        pynini.cross("ு ஒ", "ொ"),
-        pynini.cross("ு இ", "ி"),
-        pynini.cross("ு எ", "ெ"),
-        pynini.cross("ு ஏ", "ே"),
-        pynini.cross("ு ஐ", "ை"),
-        pynini.cross("ு ஆ", "ா"),
-    )
+    vowel_merge = pynini.union(*[pynini.cross(f"ு {vowel}", sign) for sign, vowel in _VOWEL_SIGNS])
     join_vowel = pynini.cdrewrite(vowel_merge, edge + stems_lopped, "", SIGMA)
     return (
-        colloquial @ nju @ joints @ scale_links @ split_thousands @ join_consonant @ join_vowel
+        colloquial
+        @ nju
+        @ joints
+        @ unfuse
+        @ scale_links
+        @ split_thousands
+        @ join_consonant
+        @ join_vowel
     ).optimize()
 
 
@@ -184,12 +205,19 @@ def _scale_expanded(plain: pynini.Fst) -> pynini.Fst:
                 for width in range(1, zeros + 1)
             ]
         )
+        digits_1_3 = pynini.closure(DIGIT, 1, 3)
+        point, tail = pynutil.delete(" புள்ளி "), pynutil.delete(f" {word}")
         graphs.append(
-            (plain @ pynini.closure(DIGIT, 1, 3))
-            + pynutil.delete(" புள்ளி ")
-            + shifted
-            + pynutil.delete(f" {word}")
+            (plain @ pynini.difference(digits_1_3, pynini.accep("0"))) + point + shifted + tail
         )
+        # A zero integer part is dropped, not kept as a leading zero: பூஜ்யம் புள்ளி ஐந்து
+        # ஆயிரம் is 500, and an all-zero result collapses to a single 0.
+        drop_zero = pynutil.delete((plain @ pynini.accep("0")).project("input"))
+        all_zeros = pynini.accep("0" * zeros)
+        graphs.append(
+            drop_zero + point + (shifted @ pynini.difference(DIGIT**zeros, all_zeros)) + tail
+        )
+        graphs.append(drop_zero + point + (shifted @ pynini.cross("0" * zeros, "0")) + tail)
         # The fused half/quarter words scale the same way: ஒன்றரை ஆயிரம் -> 1500.
         graphs.append(
             pynini.union(
@@ -220,15 +248,12 @@ class CardinalFst(GraphFst):
             optional_leading_space @ pynini.invert(tn_cardinal.itn_input_graph) @ to_ascii
         ).optimize()
 
-        # Spoken variants with spaced compounds, adapted from indic-num2words.
-        variants = pynini.string_file(get_abs_path("data/numbers/itn_variants.tsv")).optimize()
-
         # The pre-map rewrites colloquial phrasing but would destroy the sandhi forms
         # TN itself emits (இருபத்திரண்டு), so the raw input is tried first.
         # Restricted to the strings it can actually change, so the colloquial reading costs
         # a small composition instead of a second copy of the whole number grammar.
         pre_map = pynini.compose(_pre_map_domain(), _spoken_pre_map()).optimize()
-        accepted = (inverted | variants).optimize()
+        accepted = inverted
         plain = pynini.union(
             pynutil.add_weight(accepted, -0.01),
             pre_map @ accepted,

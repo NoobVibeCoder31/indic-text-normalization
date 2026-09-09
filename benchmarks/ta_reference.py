@@ -364,6 +364,9 @@ def time(text: str) -> str:
     t = tables()
     text = to_ascii_digits(text).replace("மணிக்கு", "").strip()
     parts = [int(p) for p in text.split(":")]
+    # Hour 24 is only meaningful as 24:00; 24:30 is not a clock reading.
+    if parts[0] == 24 and any(parts[1:]):
+        raise ValueError(f"hour 24 with a non-zero remainder: {text!r}")
     words = f"{t.hours[parts[0]]} {HOUR}"
     if len(parts) > 1 and parts[1]:
         words += f" {t.minutes[parts[1]]} {MINUTE}"

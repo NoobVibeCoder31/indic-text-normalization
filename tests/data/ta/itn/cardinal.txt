@@ -85,3 +85,24 @@
 # review-fix R2: a spoken sign inverts back to + / -, so +5 round-trips as -5 does
 பிளஸ் ஐந்து~+5
 பிளஸ் ஐம்பது~+50
+# license-fix: spoken tens+digit variants now come from rules over our own tables
+# spaced compound, joined by the vowel-merge rule
+இருபத்து ஒன்று~21
+நாற்பத்து ஐந்து~45
+# -தி joint normalized to the -த்து stem, then joined
+எழுபத்தி மூன்று~73
+# -தி joint written solid: ய glide before a vowel-initial digit
+எண்பத்தியொன்று~81
+தொண்ணூற்றியெட்டு~98
+# -தி joint written solid: ந fused to ன
+எண்பத்தினான்கு~84
+# -தி joint written solid onto an independent vowel, no glide
+தொண்ணூற்றிஐந்து~95
+எண்பத்திஏழு~87
+# spelling variants of 0 and 90
+பூஜ்ஜியம்~0
+தொன்ணூறு~90
+# review-fix: a zero integer part on the scale-expanded path is dropped, not left as 0500
+பூஜ்யம் புள்ளி ஐந்து ஆயிரம்~500
+பூஜ்யம் புள்ளி பூஜ்யம் ஆயிரம்~0
+ஐந்து புள்ளி பூஜ்யம் ஆயிரம்~5000
