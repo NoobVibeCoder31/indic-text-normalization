@@ -9,6 +9,7 @@ from indic_text_normalization.core.registry import ITN, TN, supported_languages
 from pathlib import Path
 
 import indic_text_normalization
+from indic_text_normalization import api
 from indic_text_normalization.core import cache
 
 
@@ -94,3 +95,32 @@ class TestGrammarCacheIdentity:
             cache.grammar_digest.cache_clear()
         assert after != before
         assert cache.grammar_digest("ta") == before
+
+
+class TestConvenienceHelpers:
+    """
+    The module-level helpers reuse one grammar per language instead of rebuilding.
+    """
+
+    def test_grammar_is_built_once_per_language(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """
+        Repeated calls share a normalizer, so a caller does not pay the build each time.
+        """
+        builds: list[str] = []
+
+        class _StubNormalizer:
+            def __init__(self, lang: str) -> None:
+                builds.append(lang)
+
+            def normalize(self, text: str) -> str:
+                return text.upper()
+
+        monkeypatch.setattr(api, "Normalizer", _StubNormalizer)
+        api._normalizer.cache_clear()
+        try:
+            assert api.normalize("a", lang="xx") == "A"
+            assert api.normalize("b", lang="xx") == "B"
+            assert api.normalize("c", lang="yy") == "C"
+        finally:
+            api._normalizer.cache_clear()
+        assert builds == ["xx", "yy"]
