@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Environments
+.venv/
+
+# Tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+
+# Compiled grammar archives
+*.far
+
+# Benchmark artefacts
+benchmarks/reports/
+benchmarks/.far_cache/
+temp/
+
+# Verbose engineering log behind CHANGELOG.md; not part of the published history.
+dev-changelog.md

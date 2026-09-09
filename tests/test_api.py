@@ -1,0 +1,126 @@
+"""
+Unit tests for the public API and grammar registry.
+"""
+
+import pytest
+
+from indic_text_normalization import InverseNormalizer, Normalizer
+from indic_text_normalization.core.registry import ITN, TN, supported_languages
+from pathlib import Path
+
+import indic_text_normalization
+from indic_text_normalization import api
+from indic_text_normalization.core import cache
+
+
+class TestNormalizer:
+    """
+    Behavioral tests for Normalizer and InverseNormalizer entry points.
+    """
+
+    def test_unknown_language_raises(self) -> None:
+        """
+        An unregistered language raises ValueError for both directions.
+        """
+        with pytest.raises(ValueError, match="not supported"):
+            Normalizer(lang="xx")
+        with pytest.raises(ValueError, match="not supported"):
+            InverseNormalizer(lang="xx")
+
+    def test_empty_input(self, ta_tn: Normalizer) -> None:
+        """
+        Empty and whitespace-only inputs come back empty.
+        """
+        assert ta_tn.normalize("") == ""
+        assert ta_tn.normalize("   ") == ""
+
+    def test_empty_input_itn(self, ta_itn: InverseNormalizer) -> None:
+        """
+        Empty and whitespace-only inputs come back empty for ITN too.
+        """
+        assert ta_itn.inverse_normalize("") == ""
+        assert ta_itn.inverse_normalize(" \t ") == ""
+
+    def test_registry_lists_tamil(self) -> None:
+        """
+        Tamil is registered for both directions.
+        """
+        assert "ta" in supported_languages(TN)
+        assert "ta" in supported_languages(ITN)
+
+    def test_far_cache_round_trip(self, tmp_path: object, ta_tn: Normalizer) -> None:
+        """
+        A cached grammar loads from FAR and produces identical output.
+        """
+        cached = Normalizer(lang="ta", cache_dir=str(tmp_path))
+        reloaded = Normalizer(lang="ta", cache_dir=str(tmp_path))
+        for text in ["123", "₹50", "10:30"]:
+            assert cached.normalize(text) == ta_tn.normalize(text)
+            assert reloaded.normalize(text) == ta_tn.normalize(text)
+
+
+class TestGrammarCacheIdentity:
+    """
+    The FAR cache is keyed by the grammar sources, not just the language and direction.
+    """
+
+    def test_path_includes_the_digest(self, tmp_path: Path) -> None:
+        """
+        The FAR path is nested under a digest, so two grammar versions cannot collide.
+        """
+        path = cache.far_path(tmp_path, "ta", "itn")
+        assert path.name == "ta_itn.far"
+        assert path.parent.name == cache.grammar_digest("ta")
+
+    def test_digest_changes_when_a_data_file_changes(self) -> None:
+        """
+        Editing a packaged table invalidates the cache identity, so a stale FAR written
+        before the edit is never reused.
+        """
+        table = (
+            Path(indic_text_normalization.__file__).resolve().parent
+            / "ta"
+            / "data"
+            / "numbers"
+            / "zero.tsv"
+        )
+        original = table.read_bytes()
+        before = cache.grammar_digest("ta")
+        try:
+            table.write_bytes(original + b"\n")
+            cache.grammar_digest.cache_clear()
+            after = cache.grammar_digest("ta")
+        finally:
+            table.write_bytes(original)
+            cache.grammar_digest.cache_clear()
+        assert after != before
+        assert cache.grammar_digest("ta") == before
+
+
+class TestConvenienceHelpers:
+    """
+    The module-level helpers reuse one grammar per language instead of rebuilding.
+    """
+
+    def test_grammar_is_built_once_per_language(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """
+        Repeated calls share a normalizer, so a caller does not pay the build each time.
+        """
+        builds: list[str] = []
+
+        class _StubNormalizer:
+            def __init__(self, lang: str) -> None:
+                builds.append(lang)
+
+            def normalize(self, text: str) -> str:
+                return text.upper()
+
+        monkeypatch.setattr(api, "Normalizer", _StubNormalizer)
+        api._normalizer.cache_clear()
+        try:
+            assert api.normalize("a", lang="xx") == "A"
+            assert api.normalize("b", lang="xx") == "B"
+            assert api.normalize("c", lang="yy") == "C"
+        finally:
+            api._normalizer.cache_clear()
+        assert builds == ["xx", "yy"]
