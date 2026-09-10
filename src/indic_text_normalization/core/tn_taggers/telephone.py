@@ -1,50 +1,39 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
-# Copyright 2015 and onwards Google, Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
+"""
+TN tagger for Indian telephone numbers, shared by every language.
+"""
 
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.core.utils import data_path
-from indic_text_normalization.core.graph_utils import delete_space, DIGIT, GraphFst, insert_space
-from indic_text_normalization.te.constants import ASCII_TO_TE_DIGIT, LANG, TE_DIGIT
-from indic_text_normalization.te.tn.taggers.cardinal import CardinalFst, attach_case_suffix
-
-digit_to_word = pynini.string_file(data_path(LANG, "telephone/number.tsv"))
-
-any_digit = pynini.union(DIGIT, TE_DIGIT)
-# The digit table is keyed by Telugu digits; ASCII digits are mapped first.
-single_digit_to_word = pynini.union(
-    TE_DIGIT @ digit_to_word, ASCII_TO_TE_DIGIT @ digit_to_word
-).optimize()
-
-# Indian mobile numbers start with 6-9.
-mobile_first_digit = pynini.union("6", "7", "8", "9", "౬", "౭", "౮", "౯")
-zero_digit = pynini.union("0", "౦")
-
-PLUS_WORD = "ప్లస్"
+from indic_text_normalization.core.graph_utils import GraphFst, delete_space, insert_space
+from indic_text_normalization.core.tn_taggers.cardinal_base import CardinalBase
+from indic_text_normalization.core.utils import data_path, load_labels
 
 
 class TelephoneFst(GraphFst):
     """
-    Finite state transducer for classifying Indian telephone numbers, e.g.
+    Finite state transducer for classifying telephone numbers, e.g.
         9943206870 -> telephone { number_part: "తొమ్మిది తొమ్మిది నాలుగు ..." }
         +91 9876543210 -> telephone { country_code: "ప్లస్ తొమ్మిది ఒకటి" number_part: "..." }
         044-28230000 -> telephone { number_part: "సున్నా నాలుగు నాలుగు రెండు ..." }
+        పిన్ కోడ్ 500001 -> telephone { number_part: "పిన్ కోడ్ ఐదు సున్నా ..." }
+
+    Reads ``telephone/number.tsv`` (native digit -> word) and ``telephone/cues.tsv`` (words
+    after which a 4-6 digit run reads digit by digit: PIN, OTP).
     """
 
-    def __init__(self, cardinal: CardinalFst | None = None, deterministic: bool = True) -> None:
+    def __init__(self, cardinal: CardinalBase, deterministic: bool = True) -> None:
         super().__init__(name="telephone", kind="classify", deterministic=deterministic)
+
+        profile = cardinal.profile
+        digit_to_word = pynini.string_file(data_path(profile.lang, "telephone/number.tsv"))
+        single_digit_to_word = pynini.union(
+            profile.digits.digit @ digit_to_word, profile.digits.from_ascii @ digit_to_word
+        ).optimize()
+        natives = [chr(ord(profile.digits.zero) + i) for i in range(10)]
+        mobile_first_digit = pynini.union(*"6789", *natives[6:])
+        zero_digit = pynini.union("0", natives[0])
+        one_word = pynini.union("1", natives[1]) @ single_digit_to_word
 
         digit_word = single_digit_to_word + insert_space
         last_digit_word = single_digit_to_word
@@ -52,7 +41,7 @@ class TelephoneFst(GraphFst):
         optional_sep = pynini.closure(delete_sep, 0, 1)
 
         # A case suffix on the number lands on the last digit word (9876543210కి -> ...సున్నాకి).
-        last_digit_suffixed = attach_case_suffix(last_digit_word)
+        last_digit_suffixed = cardinal.attach_case_suffix(last_digit_word)
 
         def shapes(last: pynini.Fst) -> tuple[pynini.Fst, pynini.Fst]:
             # 10-digit mobile starting 6-9; a 5-5 split with space or dash is common.
@@ -92,7 +81,7 @@ class TelephoneFst(GraphFst):
 
             # Toll-free: 1800-XXX-XXXX / 1-800-XXX-XXXX.
             toll_free = (
-                pynini.cross("1", "ఒకటి")
+                one_word
                 + insert_space
                 + optional_sep
                 + pynini.closure(digit_word, 3, 3)
@@ -102,10 +91,9 @@ class TelephoneFst(GraphFst):
                 + pynini.closure(digit_word, 3, 3)
                 + last
             )
-
             # Toll-free 1800-11-4000 / 1800 11 4000: 1800 + 2-3 digits + 3-4 digits.
             toll_free |= (
-                pynini.cross("1", "ఒకటి")
+                one_word
                 + insert_space
                 + pynini.closure(digit_word, 3, 3)
                 + delete_sep
@@ -133,7 +121,7 @@ class TelephoneFst(GraphFst):
 
         country_code = (
             pynutil.insert('country_code: "')
-            + pynini.cross("+", PLUS_WORD)
+            + pynini.cross("+", profile.plus_word)
             + insert_space
             + pynini.closure(digit_word, 0, 2)
             + last_digit_word
@@ -152,12 +140,10 @@ class TelephoneFst(GraphFst):
         )
 
         # PIN codes and OTPs read digit by digit after their cue word (పిన్ కోడ్ 500001).
-        cue = pynini.union(
-            "పిన్ కోడ్", "పిన్కోడ్", "పిన్", "PIN", "OTP", "otp", "ఓటీపీ", "ఓటిపి", "ఓ.టి.పి."
-        )
+        cues = [row[0] for row in load_labels(data_path(profile.lang, "telephone/cues.tsv"))]
         cued_digits = (
             pynutil.insert('number_part: "')
-            + cue
+            + pynini.union(*cues)
             + pynini.accep(" ")
             + pynini.closure(digit_word, 3, 5)
             + last_digit_word
@@ -165,17 +151,16 @@ class TelephoneFst(GraphFst):
         )
         graph |= pynutil.add_weight(cued_digits, 0.1)
 
-        # A standalone +N... (no number following) reads as ప్లస్ <number>, digit by digit
-        # when the run has leading zeros or exceeds the crore range (+000, +007).
-        if cardinal is not None:
-            standalone_cc = (
-                pynutil.insert('country_code: "')
-                + pynini.cross("+", PLUS_WORD)
-                + insert_space
-                + (cardinal.final_graph | pynutil.add_weight(cardinal.digit_by_digit, 1.0))
-                + pynutil.insert('"')
-            )
-            graph |= pynutil.add_weight(standalone_cc, 0.3)
+        # A standalone +N... (no number following) reads as <plus> <number>, digit by digit
+        # when the run has leading zeros or exceeds the cardinal's range (+000, +007).
+        standalone_cc = (
+            pynutil.insert('country_code: "')
+            + pynini.cross("+", profile.plus_word)
+            + insert_space
+            + (cardinal.final_graph | pynutil.add_weight(cardinal.digit_by_digit, 1.0))
+            + pynutil.insert('"')
+        )
+        graph |= pynutil.add_weight(standalone_cc, 0.3)
 
         self.final = graph.optimize()
         self.fst = self.add_tokens(self.final)

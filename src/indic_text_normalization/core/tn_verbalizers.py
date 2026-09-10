@@ -117,18 +117,24 @@ class RangeFst(GraphFst):
     ----------
     range_word : ``str``
         Word spoken between the two bounds.
+    range_suffix : ``str``, optional (default = "")
+        Word spoken after the upper bound (Malayalam വരെ).
     deterministic : ``bool``, optional (default = True)
         If True, provide a single transduction option.
     """
 
-    def __init__(self, *, range_word: str, deterministic: bool = True) -> None:
+    def __init__(
+        self, *, range_word: str, range_suffix: str = "", deterministic: bool = True
+    ) -> None:
         super().__init__(name="range", kind="verbalize", deterministic=deterministic)
 
+        tail = f" {range_suffix}" if range_suffix else ""
         graph = (
             _field("lower")
             + delete_space
             + pynutil.insert(f" {range_word} ")
             + _field("upper")
+            + pynutil.insert(tail)
             + delete_preserve_order
         )
         self.fst = self.delete_tokens(graph).optimize()

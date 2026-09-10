@@ -1,74 +1,58 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
-# Copyright 2015 and onwards Google, Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
+"""
+TN tagger for numeric dates, shared by every language.
+"""
 
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.core.utils import data_path
 from indic_text_normalization.core.graph_utils import CHAR, DIGIT, GraphFst, insert_space
-from indic_text_normalization.te.constants import (
-    ASCII_TO_TE_DIGIT,
-    ASCII_TO_TE_NUMBER,
-    LANG,
-    TE_DIGIT,
-)
-from indic_text_normalization.te.tn.taggers.cardinal import (
-    CardinalFst,
-    attach_case_suffix,
-    ordinal_graph,
-)
-
-days = pynini.string_file(data_path(LANG, "date/days.tsv"))
-months = pynini.string_file(data_path(LANG, "date/months.tsv"))
-year_suffix = pynini.string_file(data_path(LANG, "date/year_suffix.tsv"))
+from indic_text_normalization.core.tn_taggers.cardinal_base import CardinalBase
+from indic_text_normalization.core.utils import data_path
 
 
 class DateFst(GraphFst):
     """
-    Finite state transducer for classifying date, e.g.
-        "౦౧-౦౪-౨౦౨౪" -> date { day: "ఒకటి" month: "ఏప్రిల్" year: "రెండు వేల ఇరవై నాలుగు" }
-        "15-06-1947" -> date { day: "పదిహేను" month: "జూన్" year: "పందొమ్మిది వందల నలభై ఏడు" }
-        "2024-01-15" -> date { year: "రెండు వేల ఇరవై నాలుగు" month: "జనవరి" day: "పదిహేను" }
+    Finite state transducer for classifying dates, e.g.
+        15-06-2024 -> date { day: "పదిహేను" month: "జూన్" year: "రెండు వేల ఇరవై నాలుగు" }
+        2024-01-15 -> date { year: "..." month: "జనవరి" day: "పదిహేను" }
+        క్రీ.శ. 2024 -> date { era: "క్రీస్తు శకం" } (then the year as a cardinal)
 
-    Args:
-        cardinal: cardinal GraphFst
+    Reads ``date/days.tsv``, ``date/months.tsv`` and ``date/year_suffix.tsv`` of the
+    cardinal's language, all keyed by two native digits.
     """
 
-    def __init__(self, cardinal: CardinalFst) -> None:
-        super().__init__(name="date", kind="classify")
+    def __init__(self, cardinal: CardinalBase, deterministic: bool = True) -> None:
+        super().__init__(name="date", kind="classify", deterministic=deterministic)
+
+        profile = cardinal.profile
+        lang = profile.lang
+        native_digit = profile.digits.digit
+        days = pynini.string_file(data_path(lang, "date/days.tsv"))
+        months = pynini.string_file(data_path(lang, "date/months.tsv"))
+        year_suffix = pynini.string_file(data_path(lang, "date/year_suffix.tsv"))
 
         # Two-digit day/month in either script; a single digit is zero-padded.
-        pad_zero = pynutil.insert("౦")
+        pad_zero = pynutil.insert(profile.digits.zero)
         two_digit_input = pynini.union(
-            TE_DIGIT + TE_DIGIT,
-            pad_zero + TE_DIGIT,
-            pynini.compose(DIGIT + DIGIT, ASCII_TO_TE_NUMBER),
-            pad_zero + pynini.compose(DIGIT, ASCII_TO_TE_DIGIT),
+            native_digit + native_digit,
+            pad_zero + native_digit,
+            pynini.compose(DIGIT + DIGIT, profile.to_native),
+            pad_zero + pynini.compose(DIGIT, profile.digits.from_ascii),
         ).optimize()
         days_graph = pynini.compose(two_digit_input, days).optimize()
         months_graph = pynini.compose(two_digit_input, months).optimize()
 
-        # Four-digit years; 1100-1999 read as hundreds (పందొమ్మిది వందల నలభై ఏడు).
-        year_core = pynini.union(
-            pynutil.add_weight(cardinal.graph_year_hundreds, -0.05), cardinal.final_graph
-        ).optimize()
+        # Four-digit years; a language may read 1100-1999 as hundreds.
+        year_core = cardinal.final_graph
+        if cardinal.graph_year_hundreds is not None:
+            year_core = pynini.union(
+                pynutil.add_weight(cardinal.graph_year_hundreds, -0.05), cardinal.final_graph
+            ).optimize()
         year_graph = pynini.union(
-            pynini.compose(TE_DIGIT**4, year_core),
-            pynini.compose(DIGIT**4, ASCII_TO_TE_NUMBER @ year_core),
+            pynini.compose(native_digit**4, year_core),
+            pynini.compose(DIGIT**4, profile.to_native @ year_core),
         ).optimize()
 
-        # Separators
         delete_separator = pynutil.delete(pynini.union("-", "/", "."))
 
         # One date uses one separator throughout. That is enforced by filtering the input
@@ -92,7 +76,11 @@ class DateFst(GraphFst):
         # A case suffix on the date lands on the year (2024లో, 2024కి, 2024వ సంవత్సరం).
         year_component = (
             pynutil.insert('year: "')
-            + (year_graph | attach_case_suffix(year_graph) | ordinal_graph(year_graph))
+            + (
+                year_graph
+                | cardinal.attach_case_suffix(year_graph)
+                | cardinal.ordinal_graph(year_graph)
+            )
             + pynutil.insert('"')
         )
 

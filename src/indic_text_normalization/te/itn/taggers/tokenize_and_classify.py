@@ -1,64 +1,84 @@
 """
-Telugu ITN sentence classifier composing all ITN taggers.
+Telugu ITN sentence classifier: the shared taggers bound to the Telugu profile.
 """
 
 import pynini
-from pynini.lib import pynutil
 
-from indic_text_normalization.core.graph_utils import DIGIT
-from indic_text_normalization.core.punctuation import PunctuationFst
-from indic_text_normalization.core.scales import kept_scale_words
-from indic_text_normalization.core.sentence import SentenceClassifyFst, written_number_passthrough
-from indic_text_normalization.core.word import WordFst
-from indic_text_normalization.te.constants import LANG, TE_BLOCK, TE_DIGIT, TE_LETTER
-from indic_text_normalization.te.itn.taggers.cardinal import CardinalFst
-from indic_text_normalization.te.itn.taggers.date import DateFst
-from indic_text_normalization.te.itn.taggers.decimal import DecimalFst
-from indic_text_normalization.te.itn.taggers.fraction import FractionFst
-from indic_text_normalization.te.itn.taggers.money import MoneyFst
-from indic_text_normalization.te.itn.taggers.ordinal import OrdinalFst
-from indic_text_normalization.te.itn.taggers.prose import ProseFst
-from indic_text_normalization.te.itn.taggers.telephone import TelephoneFst
-from indic_text_normalization.te.itn.taggers.time import TimeFst
+from indic_text_normalization.core.itn_taggers.cardinal import ItnCardinalFst
+from indic_text_normalization.core.itn_taggers.classify import ItnClassifyFst
+from indic_text_normalization.core.itn_taggers.date import ItnDateFst
+from indic_text_normalization.core.itn_taggers.decimal import ItnDecimalFst
+from indic_text_normalization.core.itn_taggers.fraction import ItnFractionFst
+from indic_text_normalization.core.itn_taggers.money import ItnMoneyFst
+from indic_text_normalization.core.itn_taggers.ordinal import ItnOrdinalFst
+from indic_text_normalization.core.itn_taggers.prose import ProseFst
+from indic_text_normalization.core.itn_taggers.telephone import ItnTelephoneFst
+from indic_text_normalization.core.itn_taggers.time import ItnTimeFst
+from indic_text_normalization.te.constants import (
+    AND_WORD,
+    BY_WORDS,
+    ITN_PART_NOUNS,
+    LANG,
+    PROFILE,
+    VULGAR_WORDS,
+)
+from indic_text_normalization.te.itn.taggers.cardinal import extra_inverted, spoken_pre_map
+from indic_text_normalization.te.itn.taggers.time import ITN_TIME_WORDS
+from indic_text_normalization.te.tn.taggers.cardinal import ORDINAL_TAILS
 from indic_text_normalization.te.tn.taggers.cardinal import CardinalFst as TnCardinalFst
+from indic_text_normalization.te.tn.verbalizers.fraction import DENOMINATOR_INTA
 
 
-class ClassifyFst(SentenceClassifyFst):
+class ClassifyFst(ItnClassifyFst):
     """
     Composes all Telugu ITN taggers into a single sentence classifier.
     """
 
     def __init__(self, deterministic: bool = True) -> None:
         tn_cardinal = TnCardinalFst(deterministic=deterministic)
-        cardinal = CardinalFst(tn_cardinal=tn_cardinal, deterministic=deterministic)
-        decimal = DecimalFst(cardinal=cardinal, deterministic=deterministic)
-        fraction = FractionFst(cardinal=cardinal, deterministic=deterministic)
-        ordinal = OrdinalFst(
-            cardinal=cardinal, tn_cardinal=tn_cardinal, deterministic=deterministic
+        cardinal = ItnCardinalFst(
+            tn_cardinal,
+            pre_map=spoken_pre_map(),
+            extra_inverted=extra_inverted(tn_cardinal),
+            # A bare plural marker ల is not a suffix: వేల / లక్షల alone are generic plurals.
+            suffix_exclusions=("ల", "లు"),
+            deterministic=deterministic,
         )
-        date = DateFst(cardinal=cardinal, deterministic=deterministic)
-        time = TimeFst(cardinal=cardinal, deterministic=deterministic)
-        money = MoneyFst(cardinal=cardinal, deterministic=deterministic)
-        telephone = TelephoneFst(cardinal=cardinal, deterministic=deterministic)
-        punctuation = PunctuationFst(LANG, deterministic=deterministic)
-        prose = ProseFst(deterministic=deterministic)
-
-        written = written_number_passthrough(
-            digit=pynini.union(DIGIT, TE_DIGIT),
-            letter=TE_LETTER,
-            scale_words=kept_scale_words(LANG),
+        # The colloquial -ో ordinal is written with the plain -వ marker; మొదటి is first.
+        tails = pynini.union(*[pynini.accep(t) for t in ORDINAL_TAILS])
+        ordinal = ItnOrdinalFst(
+            cardinal,
+            tn_cardinal,
+            marker=pynini.cross("వో", "వ") | pynini.accep("వ"),
+            exceptions=pynini.cross("మొదటి", "1వ") + tails,
+            deterministic=deterministic,
         )
-        classify = (
-            pynutil.add_weight(written, 0.8)
-            | pynutil.add_weight(prose.fst, 1.0)
-            | pynutil.add_weight(telephone.fst, 0.9)
-            | pynutil.add_weight(date.fst, 1.04)
-            | pynutil.add_weight(time.fst, 1.05)
-            | pynutil.add_weight(fraction.fst, 1.06)
-            | pynutil.add_weight(money.fst, 1.07)
-            | pynutil.add_weight(decimal.fst, 1.08)
-            | pynutil.add_weight(ordinal.fst, 1.09)
-            | pynutil.add_weight(cardinal.fst, 1.1)
+        super().__init__(
+            PROFILE,
+            cardinal=cardinal,
+            decimal=ItnDecimalFst(
+                cardinal, vulgar_words=VULGAR_WORDS, and_word=AND_WORD, deterministic=deterministic
+            ),
+            fraction=ItnFractionFst(
+                cardinal,
+                denominator_to_number=pynini.invert(DENOMINATOR_INTA),
+                part_nouns=ITN_PART_NOUNS,
+                by_words=BY_WORDS,
+                and_word=AND_WORD,
+                deterministic=deterministic,
+            ),
+            ordinal=ordinal,
+            date=ItnDateFst(cardinal, deterministic=deterministic),
+            time=ItnTimeFst(cardinal, ITN_TIME_WORDS, deterministic=deterministic),
+            money=ItnMoneyFst(
+                cardinal,
+                quantity_nominative={"కోట్ల": "కోట్లు", "లక్షల": "లక్షలు"},
+                bare_scale_words=("లక్ష", "కోటి", "మిలియన్", "బిలియన్"),
+                deterministic=deterministic,
+            ),
+            telephone=ItnTelephoneFst(
+                cardinal, zero_words=("సున్న", "జీరో"), deterministic=deterministic
+            ),
+            prose=ProseFst(LANG, deterministic=deterministic),
+            deterministic=deterministic,
         )
-        word = WordFst(punctuation, script=TE_BLOCK, deterministic=deterministic)
-        super().__init__(classify, punctuation=punctuation, word=word, deterministic=deterministic)

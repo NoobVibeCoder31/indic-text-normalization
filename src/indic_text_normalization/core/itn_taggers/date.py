@@ -1,34 +1,34 @@
 """
-ITN tagger converting spoken Telugu dates to digit form.
+ITN tagger converting spoken dates to digit form, shared by every language.
 """
 
 import pynini
 from pynini.lib import pynutil
 
+from indic_text_normalization.core.graph_utils import DIGIT, GraphFst, delete_space, insert_space
+from indic_text_normalization.core.itn_taggers.cardinal import ItnCardinalFst
 from indic_text_normalization.core.utils import data_path
-from indic_text_normalization.core.graph_utils import delete_space, DIGIT, GraphFst, insert_space
-from indic_text_normalization.te.constants import LANG, TE_LETTER
-from indic_text_normalization.te.itn.taggers.cardinal import CardinalFst
 
 
-class DateFst(GraphFst):
+class ItnDateFst(GraphFst):
     """
     Finite state transducer for classifying spoken dates, e.g.
         పదిహేను జూన్ రెండు వేల ఇరవై నాలుగు -> date { day: "15" month: "జూన్" year: "2024" }
         రెండు వేల ఇరవై నాలుగు జూన్ పదిహేను -> date { year: "2024" month: "జూన్" day: "15" }
     """
 
-    def __init__(self, cardinal: CardinalFst, deterministic: bool = True) -> None:
+    def __init__(self, cardinal: ItnCardinalFst, deterministic: bool = True) -> None:
         super().__init__(name="date", kind="classify", deterministic=deterministic)
 
+        profile = cardinal.profile
         # Month names are the output side of the TN months table.
         month_names = pynini.project(
-            pynini.string_file(data_path(LANG, "date/months.tsv")), "output"
+            pynini.string_file(data_path(profile.lang, "date/months.tsv")), "output"
         ).optimize()
 
         # Days are 1-31 and years four digits, so రెండు వేల ఇరవై నాలుగు is never a day.
         valid_day = pynini.union(*[str(n) for n in range(1, 32)]).optimize()
-        four_digits = DIGIT**4 + pynini.closure(TE_LETTER)
+        four_digits = DIGIT**4 + pynini.closure(profile.letter)
         day = (
             pynutil.insert('day: "') + (cardinal.words_to_digits @ valid_day) + pynutil.insert('"')
         )

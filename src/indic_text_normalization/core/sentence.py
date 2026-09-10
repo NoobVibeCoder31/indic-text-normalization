@@ -125,9 +125,9 @@ def written_number_passthrough(
     """
     Tagger for an already-written number that ITN must return unchanged.
 
-    ITN's own output re-fed (12.5%, 10-20, +91 9876543210, ₹5 కోట్లు, 2024లో) must not be
-    split into punctuation and digits or re-read; a sign, a currency symbol, a glued
-    case suffix and a kept scale word all travel with the digits.
+    ITN's own output re-fed (12.5%, 10-20, +91 9876543210, ₹5 కోట్లు, 2024లో, 5-ാം) must not
+    be split into punctuation and digits or re-read; a sign, a currency symbol, a glued
+    case suffix (hyphenated or not) and a kept scale word all travel with the digits.
 
     Parameters
     ----------
@@ -149,7 +149,7 @@ def written_number_passthrough(
         + pynini.closure(digit, 1)
         + pynini.closure(pynini.union(*".:,/-") + pynini.closure(digit, 1))
         + pynini.closure("%", 0, 1)
-        + pynini.closure(letter)
+        + pynini.closure(pynini.closure("-", 0, 1) + pynini.closure(letter, 1), 0, 1)
         + pynini.closure(" " + pynini.union(*scale_words), 0, 1)
     )
     # The space before a scale word travels as U+00A0 NO-BREAK SPACE, as in every other
