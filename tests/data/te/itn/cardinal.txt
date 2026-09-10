@@ -104,3 +104,27 @@
 # probe-fix T9: three or more digit words are a digit string
 సున్నా సున్నా ఏడు~007
 ఒకటి రెండు మూడు నాలుగు~1234
+# license-fix: whole-phrase synonyms now come from rules over our own variant list
+ఒకటీ~1
+ఒక నూరు~100
+మున్నూరు~300
+నానూరు~400
+ఐనూరు~500
+ఒక వేయి~1000
+ఒక వెయ్యీ~1000
+ఒక లక్షం~100000
+# review-fix R2: a spoken sign inverts back to + / -, so ప్లస్ ఐదు round-trips as ఋణ ఐదు does
+ప్లస్ ఐదు~+5
+ప్లస్ యాభై~+50
+# a decimal amount times a scale word small enough to expand is one number
+ఐదు దశాంశం ఐదు వేలు~5500
+ఐదు దశాంశం సున్నా వేలు~5000
+ఒకటిన్నర వేలు~1500
+# a zero integer part is dropped, not left as a leading zero
+సున్నా దశాంశం ఐదు వేలు~500
+సున్నా దశాంశం సున్నా వేలు~0
+# prose idioms where a numeral word is a pronoun or part of an approximation
+అంతా ఒకటి~అంతా ఒకటి
+అన్నీ ఒకటి~అన్నీ ఒకటి
+ఒకటి రెండు సార్లు~ఒకటి రెండు సార్లు
+రెండు మూడు సార్లు~రెండు మూడు సార్లు

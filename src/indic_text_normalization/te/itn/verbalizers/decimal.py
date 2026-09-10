@@ -12,12 +12,18 @@ class DecimalFst(GraphFst):
     """
     Finite state transducer for verbalizing decimals, e.g.
         decimal { integer_part: "12" fractional_part: "5" } -> 12.5
+        decimal { positive: "true" integer_part: "0" fractional_part: "0" } -> +0.0
     """
 
     def __init__(self, deterministic: bool = True) -> None:
         super().__init__(name="decimal", kind="verbalize", deterministic=deterministic)
 
-        optional_sign = pynini.closure(pynini.cross('negative: "true"', "-") + delete_space, 0, 1)
+        optional_sign = pynini.closure(
+            (pynini.cross('negative: "true"', "-") | pynini.cross('positive: "true"', "+"))
+            + delete_space,
+            0,
+            1,
+        )
         integer = (
             pynutil.delete('integer_part: "') + pynini.closure(NOT_QUOTE, 1) + pynutil.delete('"')
         )

@@ -113,6 +113,11 @@ class TimeFst(GraphFst):
             + delete_space
             + (second_plain | suffixed(SUFFIXED_SECOND_WORDS))
         )
+        # Hour and minute with no గంట between them, as ASR often renders a clock time:
+        # పది ముప్పై గంటలకు -> 10:30కు. The dative is required, so a bare pair stays a number.
+        graph_hm_bare = (
+            hours + delete_space + minutes + delete_space + suffixed(SUFFIXED_HOUR_WORDS)
+        )
         graph_hs = (
             hours
             + delete_space
@@ -141,7 +146,12 @@ class TimeFst(GraphFst):
             + (delete_space + suffixed(SUFFIXED_HOUR_WORDS) | glued_suffix)
         )
 
-        graph = (graph_hms | graph_hm | graph_hs | graph_h | graph_half) + pynutil.insert(
-            " preserve_order: true"
-        )
+        graph = (
+            graph_hms
+            | graph_hm
+            | graph_hs
+            | graph_h
+            | graph_half
+            | pynutil.add_weight(graph_hm_bare, 0.1)
+        ) + pynutil.insert(" preserve_order: true")
         self.fst = self.add_tokens(graph).optimize()

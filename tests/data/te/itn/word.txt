@@ -19,3 +19,10 @@ hello world~hello world
 # probe-fix T15: written percentages and ranges pass through ITN untouched
 12.5%~12.5%
 10-20~10-20
+# review-fix R-P1: brackets and quotes no longer block the number inside them
+[ఐదు]~[ 5 ]
+"ఐదు"~" 5 "
+# review-fix R1: "=" is a TN rewrite; ITN must leave it alone (was 5 సమానం 5)
+5 = 5~5 = 5
+5=5~5 = 5
+a = b~a = b

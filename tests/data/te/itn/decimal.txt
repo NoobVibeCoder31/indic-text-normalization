@@ -19,3 +19,8 @@
 రెండు దశాంశం ఐదు లక్షల మంది~2.5 లక్షల మంది
 # probe-fix T10: three-digit fractional words
 మూడు దశాంశం నూట నలభై ఒకటి~3.141
+# review-fix R2: the sign field reaches the ITN decimal path as well
+ప్లస్ ఐదు దశాంశం ఐదు~+5.5
+ప్లస్ సున్నా దశాంశం సున్నా~+0.0
+# a scale word too large to expand stays a word beside a fused half form
+ఒకటిన్నర లక్షలు~1.5 లక్షలు

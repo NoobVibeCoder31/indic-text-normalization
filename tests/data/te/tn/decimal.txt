@@ -27,3 +27,7 @@
 # probe-fix T3: a glued case suffix on a decimal
 12.5లో~పన్నెండు దశాంశం ఐదులో
 12.5కి~పన్నెండు దశాంశం ఐదుకి
+# review-fix R2: the sign is a field, so it survives the quantity path too
+-2.5 లక్షలు~ఋణ రెండు దశాంశం ఐదు లక్షలు
++2.5 లక్షలు~ప్లస్ రెండు దశాంశం ఐదు లక్షలు
+-5 కోట్లు~ఋణ ఐదు కోట్లు

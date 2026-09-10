@@ -292,8 +292,27 @@ class MoneyFst(GraphFst):
             + pynutil.insert('"')
         )
 
+        # ₹50.50కి: a case suffix after a paise amount attaches to the minor currency
+        # word (యాభై రూపాయల యాభై పైసలకి), not to the major one.
+        graph_minor_kku = (
+            optional_graph_negative
+            + currency_major
+            + optional_space
+            + insert_space
+            + integer
+            + optional_space
+            + pynini.cross(".", " ")
+            + fraction
+            + insert_space
+            + currency_minor
+            + pynutil.insert(' suffix: "')
+            + case_suffix
+            + pynutil.insert('"')
+        )
+
         graph_currencies = (
             pynutil.add_weight(graph_major_kku, -0.1)
+            | pynutil.add_weight(graph_minor_kku, -0.2)
             | graph_major_only
             | graph_major_and_minor
             | pynutil.add_weight(graph_quantity, -0.2)

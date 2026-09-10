@@ -28,3 +28,7 @@
 # English ordinals stay untouched
 1st~1st
 2nd~2nd
+# the scale words take an ordinal stem of their own
+1000వ~వెయ్యవ
+100000వ~లక్షవ
+10000000వ~కోటవ

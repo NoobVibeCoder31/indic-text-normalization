@@ -15,16 +15,18 @@ from indic_text_normalization.te.constants import (
     delete_extra_space,
     delete_space,
 )
+from indic_text_normalization.te.itn.scales import kept_scale_words
 from indic_text_normalization.te.itn.taggers.cardinal import CardinalFst
 from indic_text_normalization.te.itn.taggers.date import DateFst
 from indic_text_normalization.te.itn.taggers.decimal import DecimalFst
 from indic_text_normalization.te.itn.taggers.fraction import FractionFst
 from indic_text_normalization.te.itn.taggers.money import MoneyFst
 from indic_text_normalization.te.itn.taggers.ordinal import OrdinalFst
-from indic_text_normalization.te.itn.taggers.punctuation import PunctuationFst
+from indic_text_normalization.te.itn.taggers.prose import ProseFst
+from indic_text_normalization.te.punctuation import PunctuationFst
 from indic_text_normalization.te.itn.taggers.telephone import TelephoneFst
 from indic_text_normalization.te.itn.taggers.time import TimeFst
-from indic_text_normalization.te.itn.taggers.word import WordFst
+from indic_text_normalization.te.word import WordFst
 from indic_text_normalization.te.tn.taggers.cardinal import CardinalFst as TnCardinalFst
 
 
@@ -48,6 +50,7 @@ class ClassifyFst(GraphFst):
         money = MoneyFst(cardinal=cardinal, deterministic=deterministic)
         telephone = TelephoneFst(cardinal=cardinal, deterministic=deterministic)
         punctuation = PunctuationFst(deterministic=deterministic)
+        prose = ProseFst(deterministic=deterministic)
 
         # Already-written numbers (ITN output re-fed) pass through untouched, including
         # a sign or country-code plus, a currency symbol and a glued case suffix.
@@ -59,15 +62,14 @@ class ClassifyFst(GraphFst):
             + pynini.closure(pynini.union(*".:,/-") + pynini.closure(any_digit, 1))
             + pynini.closure("%", 0, 1)
             + pynini.closure(TE_LETTER)
-            # The written scale idiom (₹1 కోటి, 2.5 లక్ష) keeps its singular scale word.
-            + pynini.closure(
-                " " + pynini.union("కోటి", "లక్ష", "వెయ్యి", "మిలియన్", "బిలియన్"), 0, 1
-            )
+            # The written scale idiom (₹1 కోటి, ₹5 కోట్లు, 2.5 లక్షలు) keeps its scale word.
+            + pynini.closure(" " + pynini.union(*kept_scale_words()), 0, 1)
         )
         digits_token = pynutil.insert('name: "') + digits_passthrough + pynutil.insert('"')
 
         classify = (
             pynutil.add_weight(digits_token, 0.8)
+            | pynutil.add_weight(prose.fst, 1.0)
             | pynutil.add_weight(telephone.fst, 0.9)
             | pynutil.add_weight(date.fst, 1.04)
             | pynutil.add_weight(time.fst, 1.05)

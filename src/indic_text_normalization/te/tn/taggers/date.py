@@ -18,6 +18,7 @@ from pynini.lib import pynutil
 from indic_text_normalization.te.constants import (
     ASCII_TO_TE_DIGIT,
     ASCII_TO_TE_NUMBER,
+    CHAR,
     DIGIT,
     TE_DIGIT,
     GraphFst,
@@ -72,6 +73,21 @@ class DateFst(GraphFst):
         # Separators
         delete_separator = pynutil.delete(pynini.union("-", "/", "."))
 
+        # One date uses one separator throughout. That is enforced by filtering the input
+        # below rather than by building each ordering once per separator, which would
+        # triple the tagger; without it 15-06.2024 and 2024/06-15 also tag as dates.
+        not_separator = pynini.difference(CHAR, pynini.union("-", "/", "."))
+        one_separator = pynini.union(
+            *[
+                pynini.closure(not_separator)
+                + separator
+                + pynini.closure(not_separator)
+                + separator
+                + pynini.closure(not_separator)
+                for separator in ("-", "/", ".")
+            ]
+        ).optimize()
+
         day_component = pynutil.insert('day: "') + days_graph + pynutil.insert('"')
         month_component = pynutil.insert('month: "') + months_graph + pynutil.insert('"')
         # 2-digit years are rejected: 15-06-24 is too ambiguous with number ranges.
@@ -115,12 +131,13 @@ class DateFst(GraphFst):
 
         # Numeric dates require all three components with a 4-digit year; bare
         # MM-DD / MM-YY shapes are dropped so ranges like 10-20 stay cardinals.
-        final_graph = (
+        numeric_dates = pynini.compose(
+            one_separator,
             pynutil.add_weight(graph_dd_mm_yyyy, -0.001)
             | pynutil.add_weight(graph_yyyy_mm_dd, -0.001)
-            | graph_mm_dd_yyyy
-            | pynutil.add_weight(era_graph, -0.001)
+            | graph_mm_dd_yyyy,
         )
+        final_graph = numeric_dates | pynutil.add_weight(era_graph, -0.001)
 
         self.final_graph = final_graph.optimize()
         self.fst = self.add_tokens(self.final_graph)

@@ -12,7 +12,8 @@ notes column, so provenance is recorded here per table. Digits in keys are Telug
 | `numbers/hundred.tsv` | ౧౦౦ → వంద | Written here (Kenpath had "ఒక వంద", never loaded) |
 | `numbers/hundreds_exact.tsv` | ౨౦౦-౯౦౦ → రెండు వందలు … తొమ్మిది వందలు | Written here: plural exact hundreds |
 | `numbers/hundreds_oblique.tsv` | ౨-౯ → రెండు వందల … | Written here: oblique stems before a remainder (205 → రెండు వందల ఐదు) |
-| `numbers/itn_variants.tsv` | whole-phrase synonyms → ASCII digits (నూరు, ఒక వంద, వేయి, లక్షం, ఇన్నూరు …) | Written here from AI4Bharat indic-numtowords `tel` (MIT) exception lists; ITN input only |
+| `numbers/scale_words.tsv` | scale word → trailing zeros → expand\|keep | Written here. `expand` multiplies the amount out (ఐదు దశాంశం ఐదు వేలు → 5500); `keep` leaves the written idiom (5.5 లక్షలు) |
+| `numbers/itn_prose_phrases.tsv` | phrases where a numeral word is a pronoun or an approximation idiom | Written here; col 2 is the reason. Protected verbatim by the ITN prose tagger |
 | `numbers/itn_half_forms.tsv` | fused fractional words → integer/fraction digits (ఒకటిన్నర → 1.5, పదిన్నర → 10.5); bare అర/పావు are left as nouns | Written here; 3 columns; ITN input only |
 | `date/days.tsv` | ౦౧-౩౧ → day-of-month words | Kenpath |
 | `date/months.tsv` | ౦౧-౧౨ → జనవరి … డిసెంబర్ | Kenpath |
@@ -22,7 +23,8 @@ notes column, so provenance is recorded here per table. Digits in keys are Telug
 | `money/currency.tsv` | symbol/code → singular currency word | Kenpath, plus `రూ./రూ`, `₩ ₺ ৳ ₦` rows so every minor-currency pair is reachable |
 | `money/currency_forms.tsv` | singular → plural, oblique (రూపాయి రూపాయలు రూపాయల) | Written here; 3 columns |
 | `money/major_minor_currencies.tsv` | major → minor unit (రూపాయి → పైసా) | Written here |
-| `money/currency_itn.tsv` | spoken currency word (any form) → symbol | Written here for ITN; superset of the TN symbols |
+| `money/currency_itn.tsv` | spoken currency word (singular, plural, oblique) → symbol | Written here for ITN; superset of the TN symbols. Every major needs its oblique -ల row, which is the form that stands before a minor unit (ఐదు లీరాల యాభై కురుష్లు) |
+| `money/minor_unit_itn.tsv` | extra minor-unit word → symbol | Written here; only the rows `major_minor_currencies.tsv` crossed with `currency_forms.tsv` cannot supply (the English plural పెన్స్) |
 | `measure/unit.tsv` | abbreviation → singular, plural unit (kg → కిలోగ్రామ్, కిలోగ్రాములు) | Written here (Kenpath had 9 units); 3 columns; no `st/nd/rd/th` rows so English ordinals survive; the prose words కిలో/కేజీ are deliberately absent so `5 కిలోల బియ్యం` keeps its word |
 | `telephone/number.tsv` | ౦-౯ → digit words | Kenpath |
 | `whitelist/abbreviations.tsv` | abbreviation → expansion (డా. → డాక్టర్) | Written here (Kenpath rows were identity mappings) |
@@ -53,4 +55,13 @@ Formal / textbook register was chosen for TN output. Items a native reviewer sho
 11. Case suffixes attach verbatim to the last number word (`5కి → ఐదుకి`, `2024లో → …నాలుగులో`),
     with `-లు → -ల` before a suffix (`₹150కి → …రూపాయలకి`) and `-ం → -ాని-` before a dative
     (`10%కి → పది శాతానికి`).
-12. Ordinals: `1వ → మొదటి`, `5వ → ఐదవ`, `20వ → ఇరవయ్యవ`, `5వో → ఐదో`.
+12. Ordinals: `1వ → మొదటి`, `5వ → ఐదవ`, `20వ → ఇరవయ్యవ`, `5వో → ఐదో`; the scale words take
+    a stem of their own (`1000వ → వెయ్యవ`, `1,00,000వ → లక్షవ`, `1,00,00,000వ → కోటవ`). `0వ` is
+    left alone — Telugu has no ordinal of zero.
+13. A minor unit belongs to one major currency, so `ఐదు డాలర్లు యాభై పైసలు` reads as two
+    amounts (`$5 ₹0.50`), not `$5.50`. `సెంట్` alone is dollars and `పైసా` alone is rupees,
+    because those majors come first in `money/currency_itn.tsv`.
+14. ITN accepts a spoken sign word before a number, so `ప్లస్ ఐదు → +5` as `ఋణ ఐదు → -5`.
+    An operator word between two numbers is therefore read as the sign of the second
+    (`ఐదు ప్లస్ మూడు సమానం ఎనిమిది → 5 +3 సమానం 8`); `=` itself is a TN-only rewrite, which
+    ITN leaves as it found it.

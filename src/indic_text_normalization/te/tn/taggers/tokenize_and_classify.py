@@ -37,12 +37,12 @@ from indic_text_normalization.te.tn.taggers.fraction import FractionFst
 from indic_text_normalization.te.tn.taggers.measure import MeasureFst
 from indic_text_normalization.te.tn.taggers.money import MoneyFst
 from indic_text_normalization.te.tn.taggers.ordinal import OrdinalFst
-from indic_text_normalization.te.tn.taggers.punctuation import PunctuationFst
+from indic_text_normalization.te.punctuation import PunctuationFst
 from indic_text_normalization.te.tn.taggers.range import RangeFst
 from indic_text_normalization.te.tn.taggers.telephone import TelephoneFst
 from indic_text_normalization.te.tn.taggers.time import TimeFst
 from indic_text_normalization.te.tn.taggers.whitelist import WhiteListFst
-from indic_text_normalization.te.tn.taggers.word import WordFst
+from indic_text_normalization.te.word import WordFst
 
 # A case suffix written on % (10%కి): శాతం takes the oblique శాతాని- before a dative.
 PERCENT_SUFFIXES = [
@@ -100,7 +100,7 @@ class ClassifyFst(GraphFst):
         ordinal = OrdinalFst(cardinal=cardinal, deterministic=deterministic)
         number_range = RangeFst(cardinal=cardinal, deterministic=deterministic)
         whitelist = WhiteListFst(deterministic=deterministic)
-        punctuation = PunctuationFst(deterministic=deterministic)
+        punctuation = PunctuationFst(speak_equals=True, deterministic=deterministic)
 
         classify = (
             pynutil.add_weight(whitelist.fst, 1.01)
@@ -116,7 +116,9 @@ class ClassifyFst(GraphFst):
             | pynutil.add_weight(ordinal.fst, 1.1)
         )
 
-        word_graph = WordFst(punctuation=punctuation, deterministic=deterministic).fst
+        word_graph = WordFst(
+            punctuation=punctuation, pass_urls=True, deterministic=deterministic
+        ).fst
 
         punct = (
             pynutil.insert("tokens { ")
@@ -229,7 +231,10 @@ class ClassifyFst(GraphFst):
             + pynini.closure(te_letter)
         )
         country_code_shape |= pynini.closure(any_digit, 11, 13) + pynini.closure(te_letter)
-        country_code_shape = country_code_shape.optimize()
+        # The shape is followed by the rest of the sentence, so the test below is "does the
+        # remainder begin with a telephone shape" rather than "is the remainder one": a
+        # number inside a sentence keeps its + for the telephone tagger.
+        country_code_shape = (country_code_shape + pynini.closure(CHAR)).optimize()
         # The right context is anchored with [EOS]: a cdrewrite context matches any prefix,
         # so a set-difference language only works over the whole remainder of the string.
         not_country_code = pynini.difference(any_digit + SIGMA, country_code_shape) + "[EOS]"

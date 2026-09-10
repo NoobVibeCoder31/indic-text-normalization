@@ -37,6 +37,9 @@ from indic_text_normalization.core.graph_utils import (
     NOT_SPACE as NOT_SPACE,
 )
 from indic_text_normalization.core.graph_utils import (
+    PUNCT_UNICODE as PUNCT_UNICODE,
+)
+from indic_text_normalization.core.graph_utils import (
     SIGMA as SIGMA,
 )
 from indic_text_normalization.core.graph_utils import (
@@ -103,8 +106,12 @@ MINUS_WORD = "ఋణ"
 MINUS = pynini.union(" ఋణ ").optimize()
 OPERATOR_MINUS_WORD = "మైనస్"
 
-# Decimal point word (formal register).
+# A written leading plus is spoken as ప్లస్ and inverted back to "+" by ITN.
+PLUS_WORD = "ప్లస్"
+
+# Decimal point word (formal register), plus the spoken variants ITN accepts.
 POINT_WORD = "దశాంశం"
+POINT_WORDS = [POINT_WORD, "పాయింట్", "పాయింటు", "పాయింట", "పాయిoట్", "డెసిమల్"]
 
 # Case suffixes that may be written glued to a digit (2024లో, 5కి, 100కంటే).
 CASE_SUFFIXES = [

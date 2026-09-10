@@ -9,14 +9,13 @@ from indic_text_normalization.core.utils import load_labels
 from indic_text_normalization.te.constants import (
     DIGIT,
     POINT_WORD,
+    POINT_WORDS,
     GraphFst,
     delete_space,
     insert_space,
 )
-from indic_text_normalization.te.itn.taggers.cardinal import NEGATIVE_WORDS, CardinalFst
+from indic_text_normalization.te.itn.taggers.cardinal import CardinalFst, optional_sign_field
 from indic_text_normalization.te.utils import get_abs_path
-
-POINT_WORDS = [POINT_WORD, "పాయింట్", "పాయింటు", "పాయింట", "పాయిoట్", "డెసిమల్"]
 
 
 class DecimalFst(GraphFst):
@@ -43,11 +42,10 @@ class DecimalFst(GraphFst):
             pynutil.insert('fractional_part: "') + digit_by_digit + pynutil.insert('"')
         )
 
-        negative = pynini.union(*[pynini.cross(w + " ", '"true" ') for w in NEGATIVE_WORDS])
-        optional_minus = pynini.closure(pynutil.insert("negative: ") + negative, 0, 1)
+        optional_sign = optional_sign_field()
 
         graph = (
-            optional_minus
+            optional_sign
             + integer_part
             + delete_space
             + point
@@ -64,7 +62,7 @@ class DecimalFst(GraphFst):
             + pynutil.insert('"')
         )
         graph |= pynutil.add_weight(
-            optional_minus
+            optional_sign
             + integer_part
             + delete_space
             + point
@@ -74,7 +72,7 @@ class DecimalFst(GraphFst):
             -0.1,
         )
 
-        # Fused fractional words: ఒకటిన్నర -> 1.5, పావు -> 0.25, ముప్పావు -> 0.75.
+        # Fused fractional words: ఒకటిన్నర -> 1.5, పదిన్నర -> 10.5. Bare అర/పావు stay nouns.
         half_forms = pynini.union(
             *[
                 pynini.cross(word, f'integer_part: "{ip}" fractional_part: "{fp}"')

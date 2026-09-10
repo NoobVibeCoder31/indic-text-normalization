@@ -34,3 +34,24 @@
 # probe-fix T13: spoken money ranges
 ఐదు నుండి పది రూపాయలు~₹5-10
 ఐదు నుంచి పది రూపాయలు~₹5-10
+# review-fix R10: every major/minor pair in major_minor_currencies.tsv inverts
+ఐదు రూపాయల యాభై పైసలు~₹5.50
+ఐదు డాలర్ల యాభై సెంట్లు~$5.50
+ఐదు యూరోల యాభై సెంట్లు~€5.50
+ఐదు పౌండ్ల యాభై పెన్నీలు~£5.50
+ఐదు పౌండ్ల యాభై పెన్స్~£5.50
+ఐదు యెన్ల యాభై సెన్లు~¥5.50
+ఐదు వోన్ల యాభై జియోన్లు~₩5.50
+ఐదు లీరాల యాభై కురుష్లు~₺5.50
+ఐదు టాకాల యాభై పైసలు~৳5.50
+ఐదు నైరాల యాభై కోబోలు~₦5.50
+# review-fix R10: a minor unit belongs to one major currency, so a mismatched pair reads
+# as two separate amounts rather than being silently merged
+ఐదు డాలర్లు యాభై పైసలు~$5 ₹0.50
+ఐదు రూపాయలు యాభై సెంట్లు~₹5 $0.50
+# review-fix R10: minor-unit-only amounts carry their own symbol
+యాభై సెంట్లు~$0.50
+యాభై పెన్నీలు~£0.50
+# review-fix R11: a case suffix on the minor-unit word is carried over
+యాభై రూపాయల యాభై పైసలకి~₹50.50కి
+యాభై రూపాయల యాభై పైసలకు~₹50.50కు

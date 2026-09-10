@@ -31,3 +31,10 @@
 ఇరవై ఐదు గంటలకు~25 గంటలకు
 # probe-fix T12: "Xన్నర గంటలు" is a duration, read as a decimal
 రెండున్నర గంటలు~2.5 గంటలు
+# probe-fix T18: hour and minute with no గంట between, as ASR renders a clock time
+పది ముప్పై గంటలకు~10:30కు
+ఐదు పది గంటలకు~5:10కు
+పది ముప్పై గంటలు~10 30 గంటలు
+# hour 24 reads as a duration; 23 is still a clock hour
+ఇరవై మూడు గంటలకు~23:00కు
+ఇరవై నాలుగు గంటలకు~24 గంటలకు

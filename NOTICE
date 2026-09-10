@@ -35,12 +35,3 @@ Licensed under the Apache License, Version 2.0.
   and ta/constants.py. These reached this project through NeMo-text-processing,
   which carries the Google copyright on files derived from the Thrax/Pynini
   grammar library.
-
--------------------------------------------------------------------------------
-
-AI4Bharat indic-numtowords
-https://github.com/AI4Bharat/indic-numtowords
-Licensed under the MIT License.
-
-  Telugu spoken number-word variants, as the data table
-  te/data/numbers/itn_variants.tsv. Accepted as ITN input only.

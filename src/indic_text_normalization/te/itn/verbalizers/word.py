@@ -5,10 +5,7 @@ ITN verbalizer passing plain words through.
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.te.constants import CHAR, GraphFst, delete_space
-
-# Values may contain non-breaking spaces inserted by convert_space.
-_NOT_QUOTE = pynini.difference(CHAR, r'"').optimize()
+from indic_text_normalization.te.constants import CHAR, SIGMA, GraphFst, delete_space
 
 
 class WordFst(GraphFst):
@@ -20,5 +17,9 @@ class WordFst(GraphFst):
     def __init__(self, deterministic: bool = True) -> None:
         super().__init__(name="word", kind="verbalize", deterministic=deterministic)
 
-        graph = pynutil.delete('name: "') + pynini.closure(_NOT_QUOTE, 1) + pynutil.delete('"')
+        # A value may itself be a U+0022 QUOTATION MARK token, so only the space is excluded.
+        chars = pynini.closure(pynini.difference(CHAR, " "), 1)
+        graph = pynutil.delete('name: "') + chars + pynutil.delete('"')
+        # Multi-word values travel with U+00A0 NO-BREAK SPACE; write them with plain spaces.
+        graph = graph @ pynini.cdrewrite(pynini.cross("\u00a0", " "), "", "", SIGMA)
         self.fst = (delete_space + graph + delete_space).optimize()

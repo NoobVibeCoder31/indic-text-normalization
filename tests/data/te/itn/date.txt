@@ -19,3 +19,5 @@
 ఆగస్టు పదిహేను~ఆగస్టు 15
 # probe-fix T1: locative -న on a spoken year
 పదిహేను జూన్ రెండు వేల ఇరవై నాలుగున~15 జూన్ 2024న
+# review-fix: a day is 1-31, so this is a number and a month word, not day 500
+ఐదు వందలు జూన్~500 జూన్

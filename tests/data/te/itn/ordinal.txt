@@ -17,3 +17,7 @@
 # probe-fix T11: -ో with a tail, hundreds-style years
 రెండోది~2వది
 పందొమ్మిది వందల నలభై ఏడవ~1947వ
+# the scale words take an ordinal stem of their own
+వెయ్యవ~1000వ
+లక్షవ~100000వ
+కోటవ~10000000వ
