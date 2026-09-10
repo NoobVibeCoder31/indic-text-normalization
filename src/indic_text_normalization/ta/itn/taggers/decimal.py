@@ -5,16 +5,10 @@ ITN tagger converting spoken Tamil decimals to digits.
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.ta.constants import (
-    DIGIT,
-    MINUS_WORD,
-    PLUS_WORD,
-    GraphFst,
-    delete_space,
-    insert_space,
-)
+from indic_text_normalization.core.graph_utils import delete_space, DIGIT, GraphFst, insert_space
+from indic_text_normalization.ta.constants import LANG, MINUS_WORD, PLUS_WORD
 from indic_text_normalization.ta.itn.fused import half_form_rows, quarter_form_graph
-from indic_text_normalization.ta.itn.scales import kept_scale_words
+from indic_text_normalization.core.scales import kept_scale_words
 from indic_text_normalization.ta.itn.taggers.cardinal import CardinalFst
 
 
@@ -61,7 +55,7 @@ class DecimalFst(GraphFst):
         quantity = (
             pynutil.insert(' quantity: "')
             + pynutil.delete(" ")
-            + pynini.union(*kept_scale_words())
+            + pynini.union(*kept_scale_words(LANG))
             + pynutil.insert('"')
         )
         graph |= pynutil.add_weight(

@@ -5,13 +5,12 @@ ITN tagger converting spoken digit sequences to telephone numbers.
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.te.constants import CASE_SUFFIXES, DIGIT, GraphFst, delete_space
+from indic_text_normalization.core.utils import data_path
+from indic_text_normalization.core.graph_utils import delete_space, DIGIT, GraphFst
+from indic_text_normalization.te.constants import CASE_SUFFIXES, LANG
 from indic_text_normalization.te.itn.taggers.cardinal import CardinalFst
-from indic_text_normalization.te.utils import get_abs_path
 
-digit_words = pynini.invert(
-    pynini.string_file(get_abs_path("data/telephone/number.tsv"))
-).optimize()
+digit_words = pynini.invert(pynini.string_file(data_path(LANG, "telephone/number.tsv"))).optimize()
 
 
 class TelephoneFst(GraphFst):

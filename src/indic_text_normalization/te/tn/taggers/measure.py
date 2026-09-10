@@ -15,19 +15,16 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.core.utils import load_labels
-from indic_text_normalization.te.constants import (
-    CASE_SUFFIXES,
-    POINT_WORD,
-    TO_LOWER,
-    GraphFst,
+from indic_text_normalization.core.utils import data_path, load_labels
+from indic_text_normalization.core.graph_utils import (
     convert_space,
     delete_zero_or_one_space,
+    GraphFst,
+    TO_LOWER,
 )
+from indic_text_normalization.te.constants import CASE_SUFFIXES, LANG, POINT_WORD, RANGE_WORD
 from indic_text_normalization.te.tn.taggers.cardinal import CardinalFst
 from indic_text_normalization.te.tn.taggers.decimal import DecimalFst
-from indic_text_normalization.te.tn.taggers.money import RANGE_WORD
-from indic_text_normalization.te.utils import get_abs_path
 
 # ID-prone letters (bus route 47A, model 570X...) swallow alphanumeric IDs when glued
 # to the number, so those match only after an explicit space.
@@ -47,7 +44,7 @@ class MeasureFst(GraphFst):
     ) -> None:
         super().__init__(name="measure", kind="classify", deterministic=deterministic)
 
-        rows = [r for r in load_labels(get_abs_path("data/measure/unit.tsv")) if len(r) >= 2]
+        rows = [r for r in load_labels(data_path(LANG, "measure/unit.tsv")) if len(r) >= 2]
         multi = pynini.string_map(
             [(k, v) for k, v, *_ in rows if len(k) > 1 or k not in ID_PRONE]
         ).optimize()

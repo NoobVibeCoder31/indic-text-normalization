@@ -171,23 +171,25 @@ class TestReference:
         assert first == second
 
 
+@pytest.fixture(scope="module", params=LANGUAGES, ids=LANGUAGE_IDS)
+def lang(request: pytest.FixtureRequest) -> Language:
+    language: Language = request.param
+    return language
+
+
+@pytest.fixture(scope="module")
+def records(lang: Language) -> list[dict[str, str]]:
+    with open(lang.csv, encoding="utf-8", newline="") as f:
+        reader = csv.DictReader(f)
+        assert reader.fieldnames == ["input", "expected", "type"]
+        return list(reader)
+
+
 @requires_benchmark
 class TestDataset:
     """
     Integrity checks for the ``benchmarks/<lang>_tn_benchmark.csv`` datasets.
     """
-
-    @pytest.fixture(scope="class", params=LANGUAGES, ids=LANGUAGE_IDS)
-    def lang(self, request: pytest.FixtureRequest) -> Language:
-        language: Language = request.param
-        return language
-
-    @pytest.fixture(scope="class")
-    def records(self, lang: Language) -> list[dict[str, str]]:
-        with open(lang.csv, encoding="utf-8", newline="") as f:
-            reader = csv.DictReader(f)
-            assert reader.fieldnames == ["input", "expected", "type"]
-            return list(reader)
 
     def test_size(self, records: list[dict[str, str]]) -> None:
         """

@@ -15,14 +15,8 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.te.constants import (
-    ASCII_TO_TE_NUMBER,
-    DIGIT,
-    POINT_WORD,
-    TE_DIGIT,
-    GraphFst,
-    insert_space,
-)
+from indic_text_normalization.core.graph_utils import DIGIT, GraphFst, insert_space
+from indic_text_normalization.te.constants import ASCII_TO_TE_NUMBER, POINT_WORD, TE_DIGIT
 from indic_text_normalization.te.tn.taggers.cardinal import CardinalFst, attach_case_suffix
 
 # Scale words that may follow a number (5 లక్షలు, 1.5 కోట్లు, 2 lakh, 5 million).

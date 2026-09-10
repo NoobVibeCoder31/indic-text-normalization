@@ -24,3 +24,8 @@
 ప్లస్ సున్నా దశాంశం సున్నా~+0.0
 # a scale word too large to expand stays a word beside a fused half form
 ఒకటిన్నర లక్షలు~1.5 లక్షలు
+# sweep-fix S4: the vulgar-sign readings TN emits
+ఐదు మరియు అర~5.5
+రెండు మరియు పావు~2.25
+రెండు మరియు ముప్పావు~2.75
+ఇరవై మరియు అర~20.5

@@ -55,3 +55,10 @@
 # review-fix R11: a case suffix on the minor-unit word is carried over
 యాభై రూపాయల యాభై పైసలకి~₹50.50కి
 యాభై రూపాయల యాభై పైసలకు~₹50.50కు
+# sweep-fix S6: stacked scale words keep the written idiom
+ఒక లక్ష కోట్ల రూపాయలు~₹1 లక్ష కోట్లు
+రెండు లక్షల కోట్ల రూపాయలు~₹2 లక్షల కోట్లు
+ఐదు వందల కోట్ల రూపాయలు~₹500 కోట్లు
+# sweep-fix S1: a re-fed written amount with its scale word passes through inside a sentence
+₹5 కోట్లు ఐదు మంది~₹5 కోట్లు 5 మంది
+ఐదు మంది ₹2.5 లక్షలు~5 మంది ₹2.5 లక్షలు

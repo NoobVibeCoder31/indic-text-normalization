@@ -15,7 +15,7 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.te.constants import GraphFst
+from indic_text_normalization.core.graph_utils import GraphFst
 from indic_text_normalization.te.tn.taggers.cardinal import (
     ORDINAL_TAILS,
     CardinalFst,

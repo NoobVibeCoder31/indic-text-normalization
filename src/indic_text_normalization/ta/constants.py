@@ -14,75 +14,14 @@
 # limitations under the License.
 
 """
-Tamil-specific FST constants plus re-exports of the shared core vocabulary.
+Tamil-specific constants: digits, script ranges, sign words and clock bounds.
 """
 
 import pynini
 
-from indic_text_normalization.core.graph_utils import (
-    ALPHA as ALPHA,
-)
-from indic_text_normalization.core.graph_utils import (
-    CHAR as CHAR,
-)
-from indic_text_normalization.core.graph_utils import (
-    DIGIT as DIGIT,
-)
-from indic_text_normalization.core.graph_utils import (
-    MIN_NEG_WEIGHT as MIN_NEG_WEIGHT,
-)
-from indic_text_normalization.core.graph_utils import (
-    NOT_QUOTE as NOT_QUOTE,
-)
-from indic_text_normalization.core.graph_utils import (
-    PUNCT_UNICODE as PUNCT_UNICODE,
-)
-from indic_text_normalization.core.graph_utils import (
-    NOT_SPACE as NOT_SPACE,
-)
-from indic_text_normalization.core.graph_utils import (
-    SIGMA as SIGMA,
-)
-from indic_text_normalization.core.graph_utils import (
-    SPACE as SPACE,
-)
-from indic_text_normalization.core.graph_utils import (
-    UPPER as UPPER,
-)
-from indic_text_normalization.core.graph_utils import (
-    WHITE_SPACE as WHITE_SPACE,
-)
-from indic_text_normalization.core.graph_utils import (
-    TO_LOWER as TO_LOWER,
-)
-from indic_text_normalization.core.graph_utils import (
-    GraphFst as GraphFst,
-)
-from indic_text_normalization.core.graph_utils import (
-    convert_space as convert_space,
-)
-from indic_text_normalization.core.graph_utils import (
-    delete_extra_space as delete_extra_space,
-)
-from indic_text_normalization.core.graph_utils import (
-    delete_preserve_order as delete_preserve_order,
-)
-from indic_text_normalization.core.graph_utils import (
-    delete_space as delete_space,
-)
-from indic_text_normalization.core.graph_utils import (
-    delete_zero_or_one_space as delete_zero_or_one_space,
-)
-from indic_text_normalization.core.graph_utils import (
-    generator_main as generator_main,
-)
-from indic_text_normalization.core.graph_utils import (
-    unweighted as unweighted,
-)
-from indic_text_normalization.core.graph_utils import (
-    insert_space as insert_space,
-)
 from indic_text_normalization.core.scripts import script_digit_fsts
+
+LANG = "ta"
 
 _TA_DIGITS = script_digit_fsts("௦")
 
@@ -97,12 +36,12 @@ TA_BLOCK = pynini.union(*[chr(i) for i in range(0x0B80, 0x0C00)]).optimize()
 # The letters and vowel signs of the block, i.e. everything but the Tamil digits.
 TA_LETTER = pynini.difference(TA_BLOCK, TA_DIGIT).optimize()
 
-INPUT_CASED = "cased"
-INPUT_LOWER_CASED = "lower_cased"
-
 MINUS_WORD = "மைனஸ்"
 MINUS = pynini.union(" மைனஸ் ").optimize()
 PLUS_WORD = "பிளஸ்"
+
+# Spoken between the bounds of a range (10-20 -> பத்து முதல் இருபது).
+RANGE_WORD = "முதல்"
 
 # Clock bounds for the ITN direction. TN's data/time/hours.tsv still lists hour 24
 # because it accepts the written 24:00; ITN stops at 23 because இருபத்துநான்கு மணி reads

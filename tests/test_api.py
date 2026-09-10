@@ -58,7 +58,11 @@ class TestNormalizer:
 
     @pytest.mark.parametrize("lang", ["ta", "te"])
     def test_far_cache_round_trip(
-        self, tmp_path: Path, lang: str, request: pytest.FixtureRequest
+        self,
+        tmp_path: Path,
+        lang: str,
+        request: pytest.FixtureRequest,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """
         A grammar saved to FAR loads back and produces identical output.
@@ -68,9 +72,13 @@ class TestNormalizer:
         """
         live: Normalizer = request.getfixturevalue(f"{lang}_tn")
         engine = live._engine
-        cache.save(cache.far_path(tmp_path, lang, TN), engine.classify, engine.verbalize)
+        grammar = cache.Grammar(engine.classify, engine.verbalize, engine.pre_pass)
+        cache.save(cache.far_path(tmp_path, lang, TN), grammar)
+        # A failed load would silently recompile, so compiling is made impossible here.
+        monkeypatch.setattr(api, "_compile", lambda _factory: pytest.fail("cache miss"))
         reloaded = Normalizer(lang=lang, cache_dir=str(tmp_path))
-        for text in ["123", "₹50", "10:30"]:
+        assert (reloaded._engine.pre_pass is None) == (engine.pre_pass is None)
+        for text in ["123", "₹50", "10:30", "5%కి", "+91 9876543210", "5+3=8"]:
             assert reloaded.normalize(text) == live.normalize(text)
 
 

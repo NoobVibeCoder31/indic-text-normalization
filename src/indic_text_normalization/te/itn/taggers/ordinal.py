@@ -5,7 +5,8 @@ ITN tagger converting spoken Telugu ordinals to digits with the written -వ mar
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.te.constants import DIGIT, TE_LETTER, TE_TO_ASCII_DIGIT, GraphFst
+from indic_text_normalization.core.graph_utils import DIGIT, GraphFst
+from indic_text_normalization.te.constants import TE_LETTER, TE_TO_ASCII_DIGIT
 from indic_text_normalization.te.itn.taggers.cardinal import CardinalFst
 from indic_text_normalization.te.tn.taggers.cardinal import (
     ORDINAL_TAILS,
@@ -38,9 +39,5 @@ class OrdinalFst(GraphFst):
         tails = pynini.union(*[pynini.accep(t) for t in ORDINAL_TAILS])
         first = pynini.cross("మొదటి", "1వ") + tails
 
-        graph = (
-            pynutil.insert('integer: "')
-            + (cardinal.pre_map @ (inverted | first))
-            + pynutil.insert('"')
-        )
+        graph = pynutil.insert('integer: "') + cardinal.read(inverted | first) + pynutil.insert('"')
         self.fst = self.add_tokens(graph).optimize()

@@ -5,12 +5,12 @@ ITN tagger converting spoken Tamil money amounts to symbol-and-digit form.
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.core.utils import load_labels
-from indic_text_normalization.ta.constants import DIGIT, GraphFst, delete_space
+from indic_text_normalization.core.utils import data_path, load_labels
+from indic_text_normalization.core.graph_utils import delete_space, DIGIT, GraphFst
+from indic_text_normalization.ta.constants import LANG
 from indic_text_normalization.ta.itn.fused import half_form_rows, quarter_form_graph
-from indic_text_normalization.ta.itn.scales import kept_scale_words
+from indic_text_normalization.core.scales import kept_scale_words
 from indic_text_normalization.ta.itn.taggers.cardinal import CardinalFst
-from indic_text_normalization.ta.utils import get_abs_path
 
 
 class MoneyFst(GraphFst):
@@ -23,7 +23,7 @@ class MoneyFst(GraphFst):
     def __init__(self, cardinal: CardinalFst, deterministic: bool = True) -> None:
         super().__init__(name="money", kind="classify", deterministic=deterministic)
 
-        major_rows = load_labels(get_abs_path("data/money/currency_itn.tsv"), min_fields=2)
+        major_rows = load_labels(data_path(LANG, "money/currency_itn.tsv"), min_fields=2)
         # Every minor unit TN can emit inverts to its major currency's symbol, derived from
         # the same table TN verbalizes from so the two directions cannot drift apart. The
         # extras table adds only what that pairing cannot give: plurals and ₹ காசு.
@@ -31,13 +31,13 @@ class MoneyFst(GraphFst):
         minor_rows = [
             [minor, major_to_symbol[major]]
             for major, minor in load_labels(
-                get_abs_path("data/money/major_minor_currencies.tsv"), min_fields=2
+                data_path(LANG, "money/major_minor_currencies.tsv"), min_fields=2
             )
             if major in major_to_symbol
         ]
         minor_rows += [
             row
-            for row in load_labels(get_abs_path("data/money/minor_unit_itn.tsv"), min_fields=2)
+            for row in load_labels(data_path(LANG, "money/minor_unit_itn.tsv"), min_fields=2)
             if tuple(row) not in {tuple(r) for r in minor_rows}
         ]
         currency = pynini.string_map(major_rows)
@@ -106,7 +106,7 @@ class MoneyFst(GraphFst):
             pynutil.insert('integer_part: "')
             + amount_digits
             + pynini.accep(" ")
-            + pynini.union(*kept_scale_words())
+            + pynini.union(*kept_scale_words(LANG))
             + pynutil.insert('"')
         )
         graph_quantity = (

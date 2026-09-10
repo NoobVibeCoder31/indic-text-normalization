@@ -2,15 +2,11 @@
 Union of all Telugu ITN per-class verbalizers.
 """
 
-from indic_text_normalization.te.constants import GraphFst
-from indic_text_normalization.te.itn.verbalizers.cardinal import CardinalFst
-from indic_text_normalization.te.itn.verbalizers.date import DateFst
-from indic_text_normalization.te.itn.verbalizers.decimal import DecimalFst
-from indic_text_normalization.te.itn.verbalizers.fraction import FractionFst
-from indic_text_normalization.te.itn.verbalizers.money import MoneyFst
-from indic_text_normalization.te.itn.verbalizers.ordinal import OrdinalFst
-from indic_text_normalization.te.itn.verbalizers.telephone import TelephoneFst
-from indic_text_normalization.te.itn.verbalizers.time import TimeFst
+from indic_text_normalization.core import itn_verbalizers as generic
+from indic_text_normalization.core.graph_utils import GraphFst
+
+# Nouns restored after an hour above 23, which is a duration rather than a clock time.
+DURATION_NOUNS = ("గంటల", "నిమిషాలు")
 
 
 class VerbalizeFst(GraphFst):
@@ -22,12 +18,12 @@ class VerbalizeFst(GraphFst):
         super().__init__(name="verbalize", kind="verbalize", deterministic=deterministic)
 
         self.fst = (
-            CardinalFst(deterministic=deterministic).fst
-            | DecimalFst(deterministic=deterministic).fst
-            | FractionFst(deterministic=deterministic).fst
-            | OrdinalFst(deterministic=deterministic).fst
-            | DateFst(deterministic=deterministic).fst
-            | TimeFst(deterministic=deterministic).fst
-            | MoneyFst(deterministic=deterministic).fst
-            | TelephoneFst(deterministic=deterministic).fst
+            generic.CardinalFst(deterministic=deterministic).fst
+            | generic.DecimalFst(deterministic=deterministic).fst
+            | generic.FractionFst(deterministic=deterministic).fst
+            | generic.OrdinalFst(deterministic=deterministic).fst
+            | generic.DateFst(deterministic=deterministic).fst
+            | generic.TimeFst(duration_nouns=DURATION_NOUNS, deterministic=deterministic).fst
+            | generic.MoneyFst(deterministic=deterministic).fst
+            | generic.TelephoneFst(deterministic=deterministic).fst
         )

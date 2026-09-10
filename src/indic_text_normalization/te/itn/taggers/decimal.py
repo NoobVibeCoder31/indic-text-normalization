@@ -5,17 +5,10 @@ ITN tagger converting spoken Telugu decimals to digits.
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.core.utils import load_labels
-from indic_text_normalization.te.constants import (
-    DIGIT,
-    POINT_WORD,
-    POINT_WORDS,
-    GraphFst,
-    delete_space,
-    insert_space,
-)
+from indic_text_normalization.core.utils import data_path, load_labels
+from indic_text_normalization.core.graph_utils import delete_space, DIGIT, GraphFst, insert_space
+from indic_text_normalization.te.constants import LANG, POINT_WORD, POINT_WORDS
 from indic_text_normalization.te.itn.taggers.cardinal import CardinalFst, optional_sign_field
-from indic_text_normalization.te.utils import get_abs_path
 
 
 class DecimalFst(GraphFst):
@@ -76,9 +69,20 @@ class DecimalFst(GraphFst):
         half_forms = pynini.union(
             *[
                 pynini.cross(word, f'integer_part: "{ip}" fractional_part: "{fp}"')
-                for word, ip, fp in load_labels(get_abs_path("data/numbers/itn_half_forms.tsv"))
+                for word, ip, fp in load_labels(data_path(LANG, "numbers/itn_half_forms.tsv"))
             ]
         )
         graph |= half_forms
+        # The vulgar-sign readings TN emits: ఐదు మరియు అర -> 5.5, రెండు మరియు ముప్పావు -> 2.75.
+        vulgar = pynini.union(
+            pynini.cross("అర", "5"), pynini.cross("పావు", "25"), pynini.cross("ముప్పావు", "75")
+        )
+        graph |= (
+            integer_part
+            + pynutil.delete(" మరియు ")
+            + pynutil.insert(' fractional_part: "')
+            + vulgar
+            + pynutil.insert('"')
+        )
 
         self.fst = self.add_tokens(graph).optimize()

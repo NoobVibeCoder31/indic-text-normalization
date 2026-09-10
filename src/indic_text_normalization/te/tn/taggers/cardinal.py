@@ -15,21 +15,25 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.core.utils import load_labels
+from indic_text_normalization.te.morphology import count_nouns, MANY, OBLIQUE_FINAL, ONE_AS_OKA
+from indic_text_normalization.core.utils import data_path, load_labels
+from indic_text_normalization.core.graph_utils import (
+    DIGIT,
+    GraphFst,
+    insert_space,
+    SIGMA,
+    unweighted,
+)
 from indic_text_normalization.te.constants import (
     ASCII_TO_TE_DIGIT,
     ASCII_TO_TE_NUMBER,
     CASE_SUFFIXES,
-    DIGIT,
-    SIGMA,
+    LANG,
     TE_CONSONANT,
     TE_DIGIT,
     TE_LETTER,
     TE_NON_ZERO,
-    GraphFst,
-    insert_space,
 )
-from indic_text_normalization.te.utils import get_abs_path
 
 # U+0C66 TELUGU DIGIT ZERO and U+0C67 TELUGU DIGIT ONE anchor the scale graphs.
 TE_ZERO_CHAR = "౦"
@@ -163,18 +167,18 @@ class CardinalFst(GraphFst):
     def __init__(self, deterministic: bool = True):
         super().__init__(name="cardinal", kind="classify", deterministic=deterministic)
 
-        digit = pynini.string_file(get_abs_path("data/numbers/digit.tsv")).optimize()
-        zero = pynini.string_file(get_abs_path("data/numbers/zero.tsv")).optimize()
-        teens_ties = pynini.string_file(get_abs_path("data/numbers/teens_and_ties.tsv")).optimize()
+        digit = pynini.string_file(data_path(LANG, "numbers/digit.tsv")).optimize()
+        zero = pynini.string_file(data_path(LANG, "numbers/zero.tsv")).optimize()
+        teens_ties = pynini.string_file(data_path(LANG, "numbers/teens_and_ties.tsv")).optimize()
         teens_and_ties = pynutil.add_weight(teens_ties, -0.1)
-        hundred_exact = pynini.string_file(get_abs_path("data/numbers/hundred.tsv")).optimize()
+        hundred_exact = pynini.string_file(data_path(LANG, "numbers/hundred.tsv")).optimize()
         hundreds_exact = pynini.string_file(
-            get_abs_path("data/numbers/hundreds_exact.tsv")
+            data_path(LANG, "numbers/hundreds_exact.tsv")
         ).optimize()
         hundreds_oblique = pynini.string_file(
-            get_abs_path("data/numbers/hundreds_oblique.tsv")
+            data_path(LANG, "numbers/hundreds_oblique.tsv")
         ).optimize()
-        digit_rows = [r for r in load_labels(get_abs_path("data/numbers/digit.tsv")) if len(r) >= 2]
+        digit_rows = [r for r in load_labels(data_path(LANG, "numbers/digit.tsv")) if len(r) >= 2]
         digit_2_9 = pynini.string_map(
             [(k, v) for k, v, *_ in digit_rows if k != TE_ONE_CHAR]
         ).optimize()
@@ -348,7 +352,9 @@ class CardinalFst(GraphFst):
         final_graph = (final_graph @ squeeze @ strip_leading).optimize()
 
         self.final_graph = final_graph
-        self.itn_input_graph = final_graph
+        # Exported to ITN unweighted: the zero-deletion and teens bonuses are TN's own
+        # preferences and would otherwise decide ITN token boundaries.
+        self.itn_input_graph = unweighted(final_graph)
 
         # Digit-by-digit fallback for shapes the number grammar rejects, e.g.
         # leading-zero runs (007) and digit strings beyond the crore range.
@@ -370,8 +376,22 @@ class CardinalFst(GraphFst):
         te_word = pynini.closure(TE_LETTER, 1)
         self.suffix_tail = te_word
 
+        # A count noun after the number: 1 takes the counting ఒక (1 రోజు -> ఒక రోజు) and a
+        # plural scale word its oblique (78,000 మంది -> డెబ్బై ఎనిమిది వేల మంది). Nouns come
+        # suffix may follow the noun. The tokenizer pre-pass joins the pair with U+00A0
+        # NO-BREAK SPACE, so no other class can split the number off to claim the noun
+        # (2.5 కిలో stays a decimal and a word, 2-3 రోజులు a range and a word).
+        counted = (
+            (final_graph @ pynini.union(ONE_AS_OKA, MANY @ OBLIQUE_FINAL))
+            + pynini.cross("\u00a0", " ")
+            + pynini.union(*count_nouns())
+            + te_word.ques
+        )
+        self.counted_graph = counted.optimize()
+
         tagged_integer = (
             self.final_graph
+            | self.counted_graph
             | pynutil.add_weight(self.suffixed_graph, 0.1)
             | pynutil.add_weight(digit_by_digit, 20.0)
             | pynutil.add_weight(commas_digit_by_digit, 20.0)

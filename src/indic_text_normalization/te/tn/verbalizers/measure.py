@@ -15,15 +15,15 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.core.utils import load_labels
-from indic_text_normalization.te.constants import (
-    MINUS_WORD,
-    NOT_QUOTE,
-    GraphFst,
+from indic_text_normalization.core.utils import data_path, load_labels
+from indic_text_normalization.core.graph_utils import (
     delete_preserve_order,
     delete_space,
+    GraphFst,
     insert_space,
+    NOT_QUOTE,
 )
+from indic_text_normalization.te.constants import LANG, MINUS_WORD
 from indic_text_normalization.te.morphology import (
     MANY,
     NBSP_TO_SPACE,
@@ -32,7 +32,6 @@ from indic_text_normalization.te.morphology import (
     optional_suffix_field,
     suffix_sandhi,
 )
-from indic_text_normalization.te.utils import get_abs_path
 
 
 class MeasureFst(GraphFst):
@@ -50,8 +49,8 @@ class MeasureFst(GraphFst):
         )
         # The tagger carries the singular unit (with U+00A0 inside multi-word values);
         # a count other than one takes the plural column of the unit table.
-        rows = [r for r in load_labels(get_abs_path("data/measure/unit.tsv")) if len(r) >= 3]
-        nbsp = " "
+        rows = [r for r in load_labels(data_path(LANG, "measure/unit.tsv")) if len(r) >= 3]
+        nbsp = "\u00a0"  # U+00A0 NO-BREAK SPACE, as the unit table values travel
         plural_pairs = {(sg.replace(" ", nbsp), pl.replace(" ", nbsp)) for _, sg, pl in rows}
         pluralize = pynini.string_map(sorted(plural_pairs)).optimize()
         singular = pynini.closure(NOT_QUOTE, 1)

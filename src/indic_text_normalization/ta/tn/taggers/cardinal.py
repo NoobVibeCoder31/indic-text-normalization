@@ -15,16 +15,16 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.ta.constants import (
+from indic_text_normalization.core.utils import data_path
+from indic_text_normalization.core.graph_utils import (
     CHAR,
     DIGIT,
-    SIGMA,
-    TA_DIGIT,
     GraphFst,
     insert_space,
+    SIGMA,
     unweighted,
 )
-from indic_text_normalization.ta.utils import get_abs_path
+from indic_text_normalization.ta.constants import LANG, TA_DIGIT
 
 # Convert Arabic digits (0-9) to Tamil digits (௦-௯)
 arabic_to_tamil_digit = pynini.string_map(
@@ -74,16 +74,16 @@ class CardinalFst(GraphFst):
         super().__init__(name="cardinal", kind="classify", deterministic=deterministic)
 
         # Load Tamil number mappings efficiently
-        digit = pynini.string_file(get_abs_path("data/numbers/digit.tsv")).optimize()
-        zero = pynini.string_file(get_abs_path("data/numbers/zero.tsv")).optimize()
-        teens_ties = pynini.string_file(get_abs_path("data/numbers/teens_and_ties.tsv")).optimize()
+        digit = pynini.string_file(data_path(LANG, "numbers/digit.tsv")).optimize()
+        zero = pynini.string_file(data_path(LANG, "numbers/zero.tsv")).optimize()
+        teens_ties = pynini.string_file(data_path(LANG, "numbers/teens_and_ties.tsv")).optimize()
         teens_and_ties = pynutil.add_weight(teens_ties, -0.1)
 
         # Load special hundred forms (200-900 combined forms)
         hundreds_combined = pynini.string_file(
-            get_abs_path("data/numbers/hundreds_combined.tsv")
+            data_path(LANG, "numbers/hundreds_combined.tsv")
         ).optimize()
-        hundred_exact = pynini.string_file(get_abs_path("data/numbers/hundred.tsv")).optimize()
+        hundred_exact = pynini.string_file(data_path(LANG, "numbers/hundred.tsv")).optimize()
 
         self.digit = digit
         self.zero = zero
@@ -185,7 +185,7 @@ class CardinalFst(GraphFst):
         # Exact hundreds 200-900 come from the joined-form table (இருநூறு ... தொள்ளாயிரம்).
         tamil_zero = "௦"
         graph_hundreds_exact = pynini.string_file(
-            get_abs_path("data/numbers/hundreds_exact.tsv")
+            data_path(LANG, "numbers/hundreds_exact.tsv")
         ).optimize()
 
         # For 201-209: joined stem + digit (e.g., 205 = இருநூற்று ஐந்து)

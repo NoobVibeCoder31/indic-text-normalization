@@ -5,15 +5,10 @@ ITN tagger converting spoken Telugu dates to digit form.
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.te.constants import (
-    DIGIT,
-    TE_LETTER,
-    GraphFst,
-    delete_space,
-    insert_space,
-)
+from indic_text_normalization.core.utils import data_path
+from indic_text_normalization.core.graph_utils import delete_space, DIGIT, GraphFst, insert_space
+from indic_text_normalization.te.constants import LANG, TE_LETTER
 from indic_text_normalization.te.itn.taggers.cardinal import CardinalFst
-from indic_text_normalization.te.utils import get_abs_path
 
 
 class DateFst(GraphFst):
@@ -28,7 +23,7 @@ class DateFst(GraphFst):
 
         # Month names are the output side of the TN months table.
         month_names = pynini.project(
-            pynini.string_file(get_abs_path("data/date/months.tsv")), "output"
+            pynini.string_file(data_path(LANG, "date/months.tsv")), "output"
         ).optimize()
 
         # Days are 1-31 and years four digits, so రెండు వేల ఇరవై నాలుగు is never a day.

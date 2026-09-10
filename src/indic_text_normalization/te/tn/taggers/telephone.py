@@ -15,18 +15,12 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.te.constants import (
-    ASCII_TO_TE_DIGIT,
-    DIGIT,
-    TE_DIGIT,
-    GraphFst,
-    delete_space,
-    insert_space,
-)
+from indic_text_normalization.core.utils import data_path
+from indic_text_normalization.core.graph_utils import delete_space, DIGIT, GraphFst, insert_space
+from indic_text_normalization.te.constants import ASCII_TO_TE_DIGIT, LANG, TE_DIGIT
 from indic_text_normalization.te.tn.taggers.cardinal import CardinalFst, attach_case_suffix
-from indic_text_normalization.te.utils import get_abs_path
 
-digit_to_word = pynini.string_file(get_abs_path("data/telephone/number.tsv"))
+digit_to_word = pynini.string_file(data_path(LANG, "telephone/number.tsv"))
 
 any_digit = pynini.union(DIGIT, TE_DIGIT)
 # The digit table is keyed by Telugu digits; ASCII digits are mapped first.

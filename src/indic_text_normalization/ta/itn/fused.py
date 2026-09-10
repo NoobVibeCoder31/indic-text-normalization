@@ -8,9 +8,9 @@ from collections.abc import Callable
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.core.utils import load_labels
-from indic_text_normalization.ta.constants import CHAR, TA_ARAI, TA_KAAL, TA_MUKKAL
-from indic_text_normalization.ta.utils import get_abs_path
+from indic_text_normalization.core.utils import data_path, load_labels
+from indic_text_normalization.core.graph_utils import CHAR
+from indic_text_normalization.ta.constants import LANG, TA_ARAI, TA_KAAL, TA_MUKKAL
 
 # Fraction digits of the quarter words, and the same quantity read as clock minutes.
 QUARTER_FRACTION = {TA_KAAL: "25", TA_ARAI: "5", TA_MUKKAL: "75"}
@@ -21,7 +21,7 @@ def half_form_rows() -> list[tuple[str, str, str]]:
     """
     The fused half/quarter words as ``(word, integer, fraction)`` triples.
     """
-    rows = load_labels(get_abs_path("data/numbers/itn_half_forms.tsv"), min_fields=3)
+    rows = load_labels(data_path(LANG, "numbers/itn_half_forms.tsv"), min_fields=3)
     return [(word, ip, fp) for word, ip, fp in rows]
 
 

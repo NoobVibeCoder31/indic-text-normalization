@@ -15,22 +15,20 @@
 import pynini
 from pynini.lib import pynutil
 
+from indic_text_normalization.core.utils import data_path
+from indic_text_normalization.core.graph_utils import DIGIT, GraphFst, insert_space, SPACE
 from indic_text_normalization.te.constants import (
     ASCII_TO_TE_NUMBER,
     CASE_SUFFIXES,
-    DIGIT,
-    SPACE,
+    LANG,
     TE_DIGIT,
     TE_NON_ZERO,
     TE_ZERO,
-    GraphFst,
-    insert_space,
 )
-from indic_text_normalization.te.utils import get_abs_path
 
-hours_graph = pynini.string_file(get_abs_path("data/time/hours.tsv"))
-minutes_graph = pynini.string_file(get_abs_path("data/time/minutes.tsv"))
-seconds_graph = pynini.string_file(get_abs_path("data/time/seconds.tsv"))
+hours_graph = pynini.string_file(data_path(LANG, "time/hours.tsv"))
+minutes_graph = pynini.string_file(data_path(LANG, "time/minutes.tsv"))
+seconds_graph = pynini.string_file(data_path(LANG, "time/seconds.tsv"))
 
 # Day-part words that make a press-style dotted time (ఉదయం 10.30) a clock reading.
 DAY_PARTS = [

@@ -141,17 +141,32 @@ uv run python benchmarks/run_benchmark.py benchmarks/te_tn_benchmark.csv --lang 
 ```
 
 See `benchmarks/README.md` for the schema and how the dataset is generated, and
-`benchmarks/perf_ta.py` for the latency and memory baseline.
+`benchmarks/perf.py` for the latency and memory baseline.
 
 ## Adding a language
 
 1. Create `src/indic_text_normalization/<lang>/` with `data/`, `tn/`, and `itn/`
-   mirroring the `ta` or `te` package (shared logic lives in `core/`); document every
-   table in `<lang>/data/README.md`.
+   mirroring the `ta` or `te` package; document every table in `<lang>/data/README.md`.
 2. Register the grammar factories in `core/registry.py` and add `<lang>_tn` / `<lang>_itn`
    fixtures in `tests/conftest.py`.
 3. Add golden data under `tests/data/<lang>/{tn,itn}/`, per-class tests, and an
    idempotency / round-trip module under `tests/<lang>/`.
+
+Most of a language package is data and morphology, because `core/` already provides
+everything that is not language-specific:
+
+| `core/` module | What it gives a new language |
+|---|---|
+| `sentence.py` | `SentenceClassifyFst` / `SentenceVerbalizeFst` — the token-wrapping tokenizer and the sentence verbalizer, plus the written-number passthrough ITN needs |
+| `punctuation.py`, `word.py`, `whitelist.py` | the three taggers that differ only by the script block and the language's own tables |
+| `tn_verbalizers.py`, `itn_verbalizers.py` | every verbalizer whose output is the tagged value itself (cardinal, date, ordinal, range, telephone, whitelist, word; and for ITN also decimal, fraction, money, time) |
+| `scripts.py` | the ten digit FSTs for a script, derived from its zero code point |
+| `scales.py`, `utils.py` | scale-word policy and the TSV loaders |
+| `graph_utils.py` | the FST vocabulary, including `sequential()` — see the note in that file on why an inverted TN grammar must be read input-deterministically |
+
+A language package holds its `constants.py` (digits, script ranges, sign and point words),
+its taggers, and the verbalizers whose output needs the language's morphology (money,
+measure, time, decimal, fraction).
 
 ## Project direction
 
@@ -178,7 +193,7 @@ for measured build time, memory and per-sentence latency.
   question, not a decided roadmap.
 
 **How a replacement would be judged.** Measured with
-[`benchmarks/perf_ta.py`](benchmarks/perf_ta.py) on the same pinned sentences, holding
+[`benchmarks/perf.py`](benchmarks/perf.py) on the same pinned sentences, holding
 accuracy on the golden tests and the round-trip census. "Faster" has to mean faster on the
 same inputs, or it means nothing.
 

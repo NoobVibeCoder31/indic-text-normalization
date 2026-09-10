@@ -15,8 +15,9 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.core.utils import load_labels
-from indic_text_normalization.te.constants import MINUS_WORD, SPACE, GraphFst
+from indic_text_normalization.core.utils import data_path, load_labels
+from indic_text_normalization.core.graph_utils import GraphFst, SPACE
+from indic_text_normalization.te.constants import LANG, MINUS_WORD
 from indic_text_normalization.te.morphology import (
     MANY,
     NOT_ONE,
@@ -25,7 +26,6 @@ from indic_text_normalization.te.morphology import (
     optional_suffix_field,
     suffix_sandhi,
 )
-from indic_text_normalization.te.utils import get_abs_path
 
 
 class MoneyFst(GraphFst):
@@ -43,14 +43,12 @@ class MoneyFst(GraphFst):
         forms = {
             sg: (pl, obl)
             for sg, pl, obl in (
-                r for r in load_labels(get_abs_path("data/money/currency_forms.tsv")) if len(r) >= 3
+                r for r in load_labels(data_path(LANG, "money/currency_forms.tsv")) if len(r) >= 3
             )
         }
         major_minor = {
             major: minor
-            for major, minor, *_ in load_labels(
-                get_abs_path("data/money/major_minor_currencies.tsv")
-            )
+            for major, minor, *_ in load_labels(data_path(LANG, "money/major_minor_currencies.tsv"))
         }
 
         # A case suffix on the amount attaches to the last currency word (రూపాయలకి).

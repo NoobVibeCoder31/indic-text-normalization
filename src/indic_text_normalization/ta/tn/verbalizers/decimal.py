@@ -15,13 +15,8 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.ta.constants import (
-    MINUS,
-    NOT_QUOTE,
-    PLUS_WORD,
-    GraphFst,
-    insert_space,
-)
+from indic_text_normalization.core.graph_utils import GraphFst, insert_space, NOT_QUOTE
+from indic_text_normalization.ta.constants import MINUS, PLUS_WORD
 
 
 class DecimalFst(GraphFst):

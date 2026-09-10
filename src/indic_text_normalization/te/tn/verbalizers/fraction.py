@@ -15,15 +15,14 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.te.constants import (
-    MINUS,
+from indic_text_normalization.core.graph_utils import (
+    delete_space,
+    GraphFst,
+    insert_space,
     NOT_QUOTE,
     SIGMA,
-    TE_CONSONANT,
-    GraphFst,
-    delete_space,
-    insert_space,
 )
+from indic_text_normalization.te.constants import MINUS, TE_CONSONANT
 from indic_text_normalization.te.morphology import NOT_ONE, ONE
 
 # The denominator takes the oblique -ింట: the final -ు/-ి is replaced, -ై becomes -య్యింట,
@@ -64,6 +63,9 @@ class FractionFst(GraphFst):
         graph = denominator + delete_space + insert_space + numerator
         graph = pynini.closure(integer + delete_space + pynutil.insert(" మరియు "), 0, 1) + graph
 
+        # A vulgar sign travels as its everyday word: అర, ఒకటిన్నర, రెండు మరియు ముప్పావు.
+        word = pynutil.delete('word: "') + pynini.closure(NOT_QUOTE, 1) + pynutil.delete('"')
+
         optional_sign = pynini.closure(pynini.cross('negative: "true"', MINUS) + delete_space, 0, 1)
-        self.graph = optional_sign + graph
+        self.graph = optional_sign + (graph | word)
         self.fst = self.delete_tokens(self.graph).optimize()

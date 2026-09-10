@@ -15,25 +15,23 @@
 import pynini
 from pynini.lib import pynutil
 
+from indic_text_normalization.core.utils import data_path
+from indic_text_normalization.core.graph_utils import CHAR, DIGIT, GraphFst, insert_space
 from indic_text_normalization.te.constants import (
     ASCII_TO_TE_DIGIT,
     ASCII_TO_TE_NUMBER,
-    CHAR,
-    DIGIT,
+    LANG,
     TE_DIGIT,
-    GraphFst,
-    insert_space,
 )
 from indic_text_normalization.te.tn.taggers.cardinal import (
     CardinalFst,
     attach_case_suffix,
     ordinal_graph,
 )
-from indic_text_normalization.te.utils import get_abs_path
 
-days = pynini.string_file(get_abs_path("data/date/days.tsv"))
-months = pynini.string_file(get_abs_path("data/date/months.tsv"))
-year_suffix = pynini.string_file(get_abs_path("data/date/year_suffix.tsv"))
+days = pynini.string_file(data_path(LANG, "date/days.tsv"))
+months = pynini.string_file(data_path(LANG, "date/months.tsv"))
+year_suffix = pynini.string_file(data_path(LANG, "date/year_suffix.tsv"))
 
 
 class DateFst(GraphFst):

@@ -5,7 +5,7 @@ TN tagger for numeric ranges like 10-20.
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.ta.constants import GraphFst
+from indic_text_normalization.core.graph_utils import GraphFst
 from indic_text_normalization.ta.tn.taggers.cardinal import CardinalFst
 
 

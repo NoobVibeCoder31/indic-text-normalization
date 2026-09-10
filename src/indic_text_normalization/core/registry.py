@@ -5,7 +5,9 @@ Explicit grammar registry mapping ``(lang, direction)`` to grammar factories.
 from collections.abc import Callable
 from typing import NamedTuple
 
+from indic_text_normalization.core import itn_verbalizers, tn_verbalizers
 from indic_text_normalization.core.graph_utils import GraphFst
+from indic_text_normalization.core.sentence import SentenceClassifyFst, SentenceVerbalizeFst
 
 Direction = str
 
@@ -18,56 +20,56 @@ class GrammarFactory(NamedTuple):
     Factory pair building the classify and verbalize grammars for one language/direction.
     """
 
-    classify: Callable[[], GraphFst]
+    classify: Callable[[], SentenceClassifyFst]
     verbalize: Callable[[], GraphFst]
 
 
-def _ta_tn_classify() -> GraphFst:
+def _ta_tn_classify() -> SentenceClassifyFst:
     from indic_text_normalization.ta.tn.taggers.tokenize_and_classify import ClassifyFst
 
     return ClassifyFst()
 
 
 def _ta_tn_verbalize() -> GraphFst:
-    from indic_text_normalization.ta.tn.verbalizers.verbalize_final import VerbalizeFinalFst
+    from indic_text_normalization.ta.tn.verbalizers.verbalize import VerbalizeFst
 
-    return VerbalizeFinalFst()
+    return SentenceVerbalizeFst(VerbalizeFst(), tn_verbalizers.WordFst())
 
 
-def _ta_itn_classify() -> GraphFst:
+def _ta_itn_classify() -> SentenceClassifyFst:
     from indic_text_normalization.ta.itn.taggers.tokenize_and_classify import ClassifyFst
 
     return ClassifyFst()
 
 
 def _ta_itn_verbalize() -> GraphFst:
-    from indic_text_normalization.ta.itn.verbalizers.verbalize_final import VerbalizeFinalFst
+    from indic_text_normalization.ta.itn.verbalizers.verbalize import VerbalizeFst
 
-    return VerbalizeFinalFst()
+    return SentenceVerbalizeFst(VerbalizeFst(), itn_verbalizers.WordFst())
 
 
-def _te_tn_classify() -> GraphFst:
+def _te_tn_classify() -> SentenceClassifyFst:
     from indic_text_normalization.te.tn.taggers.tokenize_and_classify import ClassifyFst
 
     return ClassifyFst()
 
 
 def _te_tn_verbalize() -> GraphFst:
-    from indic_text_normalization.te.tn.verbalizers.verbalize_final import VerbalizeFinalFst
+    from indic_text_normalization.te.tn.verbalizers.verbalize import VerbalizeFst
 
-    return VerbalizeFinalFst()
+    return SentenceVerbalizeFst(VerbalizeFst(), tn_verbalizers.WordFst())
 
 
-def _te_itn_classify() -> GraphFst:
+def _te_itn_classify() -> SentenceClassifyFst:
     from indic_text_normalization.te.itn.taggers.tokenize_and_classify import ClassifyFst
 
     return ClassifyFst()
 
 
 def _te_itn_verbalize() -> GraphFst:
-    from indic_text_normalization.te.itn.verbalizers.verbalize_final import VerbalizeFinalFst
+    from indic_text_normalization.te.itn.verbalizers.verbalize import VerbalizeFst
 
-    return VerbalizeFinalFst()
+    return SentenceVerbalizeFst(VerbalizeFst(), itn_verbalizers.WordFst())
 
 
 REGISTRY: dict[tuple[str, Direction], GrammarFactory] = {

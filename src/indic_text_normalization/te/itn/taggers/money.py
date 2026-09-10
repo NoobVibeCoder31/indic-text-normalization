@@ -5,16 +5,10 @@ ITN tagger converting spoken Telugu money amounts to symbol-and-digit form.
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.core.utils import load_labels
-from indic_text_normalization.te.constants import (
-    CASE_SUFFIXES,
-    DIGIT,
-    POINT_WORDS,
-    GraphFst,
-    delete_space,
-)
+from indic_text_normalization.core.utils import data_path, load_labels
+from indic_text_normalization.core.graph_utils import delete_space, DIGIT, GraphFst
+from indic_text_normalization.te.constants import CASE_SUFFIXES, LANG, POINT_WORDS
 from indic_text_normalization.te.itn.taggers.cardinal import CardinalFst, optional_sign_field
-from indic_text_normalization.te.utils import get_abs_path
 
 
 def _minor_unit_rows(major_to_symbol: dict[str, str]) -> list[list[str]]:
@@ -27,12 +21,12 @@ def _minor_unit_rows(major_to_symbol: dict[str, str]) -> list[list[str]]:
     """
     forms = {
         row[0]: row
-        for row in load_labels(get_abs_path("data/money/currency_forms.tsv"), min_fields=3)
+        for row in load_labels(data_path(LANG, "money/currency_forms.tsv"), min_fields=3)
     }
     rows = [
         [word, major_to_symbol[major]]
         for major, minor in load_labels(
-            get_abs_path("data/money/major_minor_currencies.tsv"), min_fields=2
+            data_path(LANG, "money/major_minor_currencies.tsv"), min_fields=2
         )
         if major in major_to_symbol
         for word in forms.get(minor, [minor])
@@ -40,7 +34,7 @@ def _minor_unit_rows(major_to_symbol: dict[str, str]) -> list[list[str]]:
     seen = {tuple(row) for row in rows}
     rows += [
         row
-        for row in load_labels(get_abs_path("data/money/minor_unit_itn.tsv"), min_fields=2)
+        for row in load_labels(data_path(LANG, "money/minor_unit_itn.tsv"), min_fields=2)
         if tuple(row) not in seen
     ]
     return rows
@@ -57,7 +51,7 @@ class MoneyFst(GraphFst):
     def __init__(self, cardinal: CardinalFst, deterministic: bool = True) -> None:
         super().__init__(name="money", kind="classify", deterministic=deterministic)
 
-        major_rows = load_labels(get_abs_path("data/money/currency_itn.tsv"), min_fields=2)
+        major_rows = load_labels(data_path(LANG, "money/currency_itn.tsv"), min_fields=2)
         minor_rows = _minor_unit_rows(dict(major_rows))
         currency = pynini.string_map(major_rows)
         minor = pynini.string_map(minor_rows)
@@ -138,6 +132,14 @@ class MoneyFst(GraphFst):
             pynini.accep("మిలియన్"),
             pynini.accep("బిలియన్"),
         )
+        # Two scale words stack in the written idiom too: ఒక లక్ష కోట్ల రూపాయలు -> ₹1 లక్ష కోట్లు,
+        # రెండు లక్షల కోట్ల రూపాయలు -> ₹2 లక్షల కోట్లు; the first keeps its oblique.
+        stacked = (
+            pynini.union("లక్ష", "లక్షల")
+            + " "
+            + pynini.union(pynini.accep("కోట్లు"), pynini.cross("కోట్ల", "కోట్లు"))
+        )
+        quantity_written = pynini.union(quantity_written, pynutil.add_weight(stacked, -0.1))
         short = cardinal.words_to_digits @ pynini.closure(DIGIT, 1, 2)
         frac_digits = short + pynini.closure(delete_space + short)
         point = pynini.cross(pynini.accep(" ") + pynini.union(*POINT_WORDS) + " ", ".")

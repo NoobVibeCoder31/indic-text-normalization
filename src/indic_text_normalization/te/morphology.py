@@ -6,7 +6,9 @@ counting-one ఒక, and case-suffix sandhi on the noun a number modifies.
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.te.constants import NOT_QUOTE, POINT_WORD, SIGMA, TE_CONSONANT
+from indic_text_normalization.core.graph_utils import NOT_QUOTE, SIGMA
+from indic_text_normalization.core.utils import data_path, load_labels
+from indic_text_normalization.te.constants import LANG, POINT_WORD, TE_CONSONANT
 
 ONE = "ఒకటి"
 OKA = "ఒక"
@@ -137,4 +139,13 @@ def optional_suffix_field() -> pynini.Fst:
     )
 
 
-NBSP_TO_SPACE = pynini.cdrewrite(pynini.cross(" ", " "), "", "", SIGMA).optimize()
+NBSP_TO_SPACE = pynini.cdrewrite(pynini.cross("\u00a0", " "), "", "", SIGMA).optimize()
+
+
+def count_nouns() -> list[str]:
+    """
+    Nouns a numeral counts (numbers/count_nouns.tsv) plus the singular and plural unit words.
+    """
+    nouns = [row[0] for row in load_labels(data_path(LANG, "numbers/count_nouns.tsv"))]
+    units = load_labels(data_path(LANG, "measure/unit.tsv"), min_fields=3)
+    return nouns + [word for row in units for word in row[1:3]]

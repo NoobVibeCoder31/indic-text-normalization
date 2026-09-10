@@ -5,7 +5,12 @@ ITN tagger converting spoken Telugu fractions to digits.
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.te.constants import GraphFst, delete_space, insert_space
+from indic_text_normalization.core.graph_utils import (
+    delete_space,
+    GraphFst,
+    insert_space,
+    sequential,
+)
 from indic_text_normalization.te.itn.taggers.cardinal import CardinalFst
 from indic_text_normalization.te.tn.verbalizers.fraction import DENOMINATOR_INTA
 
@@ -21,7 +26,7 @@ class FractionFst(GraphFst):
         super().__init__(name="fraction", kind="classify", deterministic=deterministic)
 
         # Undo the oblique -ింట on the denominator, then read it as a number.
-        denominator_words = (pynini.invert(DENOMINATOR_INTA) @ cardinal.words_to_digits).optimize()
+        denominator_words = sequential(pynini.invert(DENOMINATOR_INTA) @ cardinal.words_to_digits)
         vanthu = pynini.union("వంతులు", "వంతుల", "వంతు", "భాగాలు", "భాగం")
         numerator_words = pynini.union(cardinal.words_to_digits, pynini.cross("ఒక", "1"))
 

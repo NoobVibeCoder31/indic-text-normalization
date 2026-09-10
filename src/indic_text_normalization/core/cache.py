@@ -7,6 +7,7 @@ from contextlib import suppress
 from functools import cache as _memoize
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
+from typing import NamedTuple
 
 import pynini
 
@@ -14,6 +15,18 @@ from indic_text_normalization.core.graph_utils import generator_main
 
 CLASSIFY_RULE = "tokenize_and_classify"
 VERBALIZE_RULE = "verbalize"
+PRE_PASS_RULE = "pre_pass"  # noqa: S105
+
+
+class Grammar(NamedTuple):
+    """
+    The compiled FSTs of one language/direction pair.
+    """
+
+    classify: pynini.Fst
+    verbalize: pynini.Fst
+    pre_pass: pynini.Fst | None = None
+
 
 # Files whose contents decide what a compiled grammar contains.
 _SOURCE_SUFFIXES = (".py", ".tsv")
@@ -58,9 +71,9 @@ def far_path(cache_dir: str | Path, lang: str, direction: str) -> Path:
     return Path(cache_dir) / grammar_digest(lang) / f"{lang}_{direction}.far"
 
 
-def load(path: Path) -> tuple[pynini.Fst, pynini.Fst] | None:
+def load(path: Path) -> Grammar | None:
     """
-    Load ``(classify, verbalize)`` FSTs from a FAR file, or None if unreadable.
+    Load a grammar from a FAR file, or None if the file is missing or unreadable.
     """
     if not path.exists():
         return None
@@ -69,14 +82,19 @@ def load(path: Path) -> tuple[pynini.Fst, pynini.Fst] | None:
         classify = far[CLASSIFY_RULE]
         far.reset()
         verbalize = far[VERBALIZE_RULE]
-        return classify, verbalize
+        far.reset()
+        pre_pass = far[PRE_PASS_RULE] if far.find(PRE_PASS_RULE) else None
+        return Grammar(classify, verbalize, pre_pass)
     except Exception:
         return None
 
 
-def save(path: Path, classify: pynini.Fst, verbalize: pynini.Fst) -> None:
+def save(path: Path, grammar: Grammar) -> None:
     """
-    Write ``(classify, verbalize)`` FSTs to a FAR file, creating parent dirs.
+    Write a grammar to a FAR file, creating parent directories.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
-    generator_main(str(path), {CLASSIFY_RULE: classify, VERBALIZE_RULE: verbalize})
+    rules = {CLASSIFY_RULE: grammar.classify, VERBALIZE_RULE: grammar.verbalize}
+    if grammar.pre_pass is not None:
+        rules[PRE_PASS_RULE] = grammar.pre_pass
+    generator_main(str(path), rules)

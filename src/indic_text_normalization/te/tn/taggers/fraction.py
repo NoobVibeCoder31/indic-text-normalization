@@ -11,26 +11,29 @@
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
+# limitations under the License.
 
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.te.constants import DIGIT, TE_DIGIT, GraphFst
+from indic_text_normalization.core.graph_utils import DIGIT, SIGMA, GraphFst
+from indic_text_normalization.te.constants import TE_DIGIT
 from indic_text_normalization.te.tn.taggers.cardinal import CardinalFst
 
-# Vulgar fraction signs as (sign, numerator word, denominator word).
-VULGAR_FRACTIONS = [
-    ("½", "ఒకటి", "రెండు"),
-    ("¼", "ఒకటి", "నాలుగు"),
-    ("¾", "మూడు", "నాలుగు"),
-]
+# Vulgar fraction signs and their everyday words: ½ కిలో is అర కిలో, not "one part in two".
+VULGAR_WORDS = {"½": "అర", "¼": "పావు", "¾": "ముప్పావు"}
+HALF_SUFFIX = "న్నర"
+# Nouns a written fraction already contains, so "3/4 వంతు" is not read with the noun twice.
+PART_NOUNS = ["వంతులు", "వంతు"]
 
 
 class FractionFst(GraphFst):
     """
     Finite state transducer for classifying fractions, e.g.
         3/4 -> fraction { numerator: "మూడు" denominator: "నాలుగు" }
-        ½ -> fraction { numerator: "ఒకటి" denominator: "రెండు" }
+        ½ -> fraction { word: "అర" }
+        1½ -> fraction { word: "ఒకటిన్నర" }
+        2¾ -> fraction { word: "రెండు మరియు ముప్పావు" }
     """
 
     def __init__(self, cardinal: CardinalFst, deterministic: bool = True) -> None:
@@ -57,21 +60,26 @@ class FractionFst(GraphFst):
             + (pynini.cross("/", '" ') | pynini.cross(" / ", '" '))
         )
         denominator = pynutil.insert('denominator: "') + denominator_graph + pynutil.insert('"')
+        part_noun = pynini.closure(pynutil.delete(" " + pynini.union(*PART_NOUNS)), 0, 1)
 
-        graph = pynini.closure(integer + pynini.accep(" "), 0, 1) + (numerator + denominator)
+        graph = pynini.closure(integer + pynini.accep(" "), 0, 1) + numerator + denominator
+        graph += part_noun
         optional_negative = pynini.closure(
             pynutil.insert("negative: ") + pynini.cross("-", '"true" '), 0, 1
         )
         graph = optional_negative + graph
 
-        vulgar = pynini.union(
-            *[
-                pynutil.delete(sign) + pynutil.insert(f'numerator: "{num}" denominator: "{den}"')
-                for sign, num, den in VULGAR_FRACTIONS
-            ]
-        )
-        optional_space = pynini.closure(pynini.accep(" "), 0, 1)
-        graph |= pynini.closure(integer + optional_space + pynutil.insert(" "), 0, 1) + vulgar
+        # Vulgar signs read as words. With an integer, a half fuses onto a vowel-final
+        # stem (ఒకటిన్నర, పన్నెండున్నర); anything else is "N మరియు <word>".
+        optional_space = pynutil.delete(pynini.closure(" ", 0, 1))
+        vulgar_word = pynini.union(*[pynini.cross(s, w) for s, w in VULGAR_WORDS.items()])
+        fusable = cardinal_graph @ (SIGMA + pynini.union("ు", "ి"))
+        fused_half = fusable + optional_space + pynini.cross("½", HALF_SUFFIX)
+        with_integer = cardinal_graph + optional_space + pynutil.insert(" మరియు ") + vulgar_word
+        word = pynini.union(
+            vulgar_word, pynutil.add_weight(fused_half, -0.1), with_integer
+        ) + pynini.closure(pynutil.delete(" " + pynini.union(*PART_NOUNS)), 0, 1)
+        graph |= optional_negative + pynutil.insert('word: "') + word + pynutil.insert('"')
 
         self.graph = graph
         self.fst = self.add_tokens(self.graph).optimize()

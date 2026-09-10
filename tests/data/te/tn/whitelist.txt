@@ -25,3 +25,11 @@
 5%ే~ఐదు శాతమే
 5%ల~ఐదు శాతాల
 5%కీ~ఐదు శాతానికీ
+# sweep-fix S2: @ and _ are spoken next to Telugu letters or marks, kept inside identifiers
+@రవి~ఎట్ రవి
+(@)~( ఎట్ )
+రవి_కుమార్~రవి అండర్ స్కోర్ కుమార్
+user@example.com~user@example.com
+a_b~a_b
+5_6~ఐదు అండర్ స్కోర్ ఆరు
+5@~ఐదు ఎట్

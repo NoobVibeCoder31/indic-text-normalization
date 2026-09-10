@@ -5,9 +5,10 @@ ITN tagger converting spoken Tamil dates to digit form.
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.ta.constants import DIGIT, TA_LETTER, GraphFst, delete_space
+from indic_text_normalization.core.utils import data_path
+from indic_text_normalization.core.graph_utils import delete_space, DIGIT, GraphFst
+from indic_text_normalization.ta.constants import LANG, TA_LETTER
 from indic_text_normalization.ta.itn.taggers.cardinal import CardinalFst
-from indic_text_normalization.ta.utils import get_abs_path
 
 
 class DateFst(GraphFst):
@@ -22,7 +23,7 @@ class DateFst(GraphFst):
 
         # Month names are the output side of the TN months table.
         month_names = pynini.project(
-            pynini.string_file(get_abs_path("data/date/months.tsv")), "output"
+            pynini.string_file(data_path(LANG, "date/months.tsv")), "output"
         ).optimize()
 
         # A day is 1-31 and a year at most four digits. Range-binding them keeps the

@@ -31,8 +31,8 @@ def _rel(path: Path) -> str:
 
 
 def _data_rel(path: Path) -> str:
-    """Path below ``<lang>/data/`` (the form grammars pass to ``get_abs_path``)."""
-    return str(path.relative_to(SRC_ROOT / path.relative_to(SRC_ROOT).parts[0]))
+    """Path below ``<lang>/data/`` (the form grammars pass to ``data_path``)."""
+    return str(path.relative_to(SRC_ROOT / path.relative_to(SRC_ROOT).parts[0] / "data"))
 
 
 class TestDataIntegrity:
@@ -66,13 +66,18 @@ class TestDataIntegrity:
     @pytest.mark.parametrize("path", TSV_FILES, ids=_rel)
     def test_referenced_by_a_grammar(self, path: Path) -> None:
         """
-        Every table is read by some grammar of its language, or listed as known unused.
+        Every table is read by a grammar of its language or a shared core grammar, or is
+        listed as known unused.
         """
         if _rel(path) in KNOWN_UNUSED:
             pytest.skip("documented unused table")
         lang_dir = SRC_ROOT / path.relative_to(SRC_ROOT).parts[0]
         needle = _data_rel(path)
-        sources = [p.read_text(encoding="utf-8") for p in lang_dir.rglob("*.py")]
+        sources = [
+            p.read_text(encoding="utf-8")
+            for root in (lang_dir, SRC_ROOT / "core")
+            for p in root.rglob("*.py")
+        ]
         assert any(needle in src for src in sources), f"{needle} is read by no grammar"
 
     @pytest.mark.parametrize("path", TSV_FILES, ids=_rel)
@@ -82,7 +87,7 @@ class TestDataIntegrity:
         """
         lang_dir = SRC_ROOT / path.relative_to(SRC_ROOT).parts[0]
         readme = (lang_dir / "data" / "README.md").read_text(encoding="utf-8")
-        rel = _data_rel(path).removeprefix("data/")
+        rel = _data_rel(path)
         stem = rel.rsplit("/", 1)[-1].removesuffix(".tsv")
         folder = rel.rsplit("/", 1)[0] if "/" in rel else ""
         assert (

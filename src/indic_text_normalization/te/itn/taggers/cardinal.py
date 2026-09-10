@@ -5,21 +5,20 @@ ITN tagger converting spoken Telugu numbers to ASCII digits.
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.core.utils import load_labels
+from indic_text_normalization.te.morphology import OBLIQUE_FINAL
+from indic_text_normalization.core.utils import data_path, load_labels
+from indic_text_normalization.core.graph_utils import DIGIT, GraphFst, sequential, SIGMA, unweighted
 from indic_text_normalization.te.constants import (
-    DIGIT,
+    LANG,
     MINUS_WORD,
     PLUS_WORD,
     POINT_WORDS,
-    SIGMA,
     TE_LETTER,
     TE_TO_ASCII_DIGIT,
-    GraphFst,
 )
-from indic_text_normalization.te.itn.scales import expanded_scale_words
+from indic_text_normalization.core.scales import expanded_scale_words
 from indic_text_normalization.te.tn.taggers.cardinal import CardinalFst as TnCardinalFst
 from indic_text_normalization.te.tn.taggers.cardinal import attach_case_suffix
-from indic_text_normalization.te.utils import get_abs_path
 
 # Spelling, dialect and ASR variants rewritten to the words the TN grammar emits.
 _VARIANTS = [
@@ -104,6 +103,7 @@ def optional_sign_field() -> pynini.Fst:
 
 _TENS_STEMS = ["ఇరవ", "ముప్ప", "నలభ", "యాభ", "అరవ", "డెబ్బ", "ఎనభ", "తొంభ"]
 _CONSONANT_DIGITS = ["రెండు", "మూడు", "నాలుగు", "ఏడు", "తొమ్మిది"]
+_VOWEL_DIGITS = ["ఒకటి", "ఐదు", "ఆరు", "ఎనిమిది"]
 _SCALE_WORDS = ["వంద", "వెయ్యి", "లక్ష", "కోటి"]
 _GLUED_SCALES = ["వందలు", "వందల", "వేలు", "వేల", "వేలా", "లక్షలు", "లక్షల", "కోట్లు", "కోట్ల"]
 _TENS_WORDS = ["పది", "ఇరవై", "ముప్పై", "నలభై", "యాభై", "అరవై", "డెబ్బై", "ఎనభై", "తొంభై"]
@@ -129,7 +129,10 @@ def spoken_pre_map() -> pynini.Fst:
     # ఇరవయ్యొకటి -> ఇరవై ఒకటి.
     stems = pynini.union(*_TENS_STEMS)
     split_consonant = pynini.cdrewrite(
-        pynutil.insert(" "), edge + stems + "ై", pynini.union(*_CONSONANT_DIGITS), SIGMA
+        pynutil.insert(" "),
+        edge + stems + "ై",
+        pynini.union(*_CONSONANT_DIGITS, *_VOWEL_DIGITS),
+        SIGMA,
     )
     split_vowel = pynini.cdrewrite(
         pynini.union(
@@ -198,10 +201,10 @@ def _scale_expanded(plain: pynini.Fst) -> pynini.Fst:
     Multiply out a scale word small enough for it, e.g. ఐదు దశాంశం ఐదు వేలు -> 5500.
     """
     words_by_zeros: dict[int, list[str]] = {}
-    for word, zeros in expanded_scale_words():
+    for word, zeros in expanded_scale_words(LANG):
         words_by_zeros.setdefault(zeros, []).append(word)
 
-    half_rows = load_labels(get_abs_path("data/numbers/itn_half_forms.tsv"), min_fields=3)
+    half_rows = load_labels(data_path(LANG, "numbers/itn_half_forms.tsv"), min_fields=3)
     point = pynutil.delete(" " + pynini.union(*POINT_WORDS) + " ")
     graphs = []
     for zeros, words in words_by_zeros.items():
@@ -239,6 +242,34 @@ def _scale_expanded(plain: pynini.Fst) -> pynini.Fst:
     return pynini.union(*graphs).optimize()
 
 
+def _hundreds_of_crores(tn_cardinal: TnCardinalFst, to_ascii: pynini.Fst) -> pynini.Fst:
+    """
+    Read 100-999 crore, one place beyond the TN cardinal: ఐదు వందల కోట్లు -> 5000000000,
+    ఐదు వందల కోట్ల నలభై ఐదు లక్షలు -> 5004500000.
+    """
+    # The hundreds word stands in its oblique before కోట్లు (ఐదు వందల కోట్లు, నూట ఐదు కోట్లు).
+    hundreds = unweighted(pynini.invert(tn_cardinal.graph_hundreds @ OBLIQUE_FINAL) @ to_ascii)
+    below_crore = unweighted(
+        pynini.invert(
+            pynini.union(
+                tn_cardinal.digit,
+                tn_cardinal.teens_and_ties,
+                tn_cardinal.graph_hundreds,
+                tn_cardinal.graph_thousands,
+                tn_cardinal.graph_ten_thousands,
+                tn_cardinal.graph_lakhs,
+                tn_cardinal.graph_ten_lakhs,
+            )
+        )
+        @ to_ascii
+    )
+    remainder = pynini.union(
+        *[pynutil.insert("0" * (7 - width)) + (below_crore @ DIGIT**width) for width in range(1, 8)]
+    )
+    exact = hundreds + pynini.cross(" " + pynini.union("కోట్లు", "కోట్ల"), "0000000")
+    return pynini.union(exact, hundreds + pynutil.delete(" కోట్ల ") + remainder).optimize()
+
+
 class CardinalFst(GraphFst):
     """
     Finite state transducer for classifying spoken cardinals, e.g.
@@ -255,13 +286,14 @@ class CardinalFst(GraphFst):
         # A plural scale word closing the phrase may stand in its oblique form before a
         # noun (రెండు వేల రూపాయలు), and years 1100-1999 read as hundreds.
         oblique = tn_cardinal.final_graph @ (SIGMA + pynini.cross("లు", "ల"))
-        inverted |= (pynini.invert(oblique) @ to_ascii).optimize()
-        inverted |= (pynini.invert(tn_cardinal.graph_year_hundreds) @ to_ascii).optimize()
+        inverted |= unweighted(pynini.invert(oblique) @ to_ascii)
+        inverted |= unweighted(pynini.invert(tn_cardinal.graph_year_hundreds) @ to_ascii)
+        inverted |= _hundreds_of_crores(tn_cardinal, to_ascii)
 
         self.pre_map = spoken_pre_map()
-        plain = (self.pre_map @ inverted).optimize()
+        plain = self.read(inverted)
         # A decimal amount times a small scale word is one number: ఐదు దశాంశం ఐదు వేలు -> 5500.
-        self.words_to_digits = pynini.union(plain, _scale_expanded(plain)).optimize()
+        self.words_to_digits = sequential(pynini.union(plain, _scale_expanded(plain)))
 
         # A case suffix on the last number word is carried into the written form. Vowel-sign
         # suffixes are left out: ఒకటే is an ordinary word, not 1ే.
@@ -275,12 +307,33 @@ class CardinalFst(GraphFst):
         suffixed = (
             pynini.invert(attach_case_suffix(suffixable, include_vowel=False)) @ keep_suffix
         ).optimize()
-        self.words_to_digits_suffixed = (self.pre_map @ suffixed).optimize()
+        self.words_to_digits_suffixed = self.read(suffixed)
 
+        # The counting ఒక reads as 1 before a unit word only (ఒక కిలోగ్రామ్ -> 1 కిలోగ్రామ్);
+        # before any other noun it is also the article (ఒక రోజు, "one day"), and stays.
+        # A unit that is also an ordinary count noun (గంట, నిమిషం) is left out: ఒక గంట is
+        # "an hour" as often as "1 hour", and the article reading must survive.
+        nouns = {row[0] for row in load_labels(data_path(LANG, "numbers/count_nouns.tsv"))}
+        units = [
+            row[1]
+            for row in load_labels(data_path(LANG, "measure/unit.tsv"), min_fields=2)
+            if row[1] not in nouns
+        ]
+        one_unit = pynini.cross("ఒక", "1") + " " + pynini.union(*units) + pynini.closure(TE_LETTER)
         graph = (
             optional_sign_field()
             + pynutil.insert('integer: "')
-            + (self.words_to_digits | pynutil.add_weight(self.words_to_digits_suffixed, 0.1))
+            + (
+                self.words_to_digits
+                | pynutil.add_weight(self.words_to_digits_suffixed, 0.1)
+                | pynutil.add_weight(one_unit, 0.1)
+            )
             + pynutil.insert('"')
         )
         self.fst = self.add_tokens(graph).optimize()
+
+    def read(self, lexicon: pynini.Fst) -> pynini.Fst:
+        """
+        Read spoken words through the pre-map into ``lexicon``, input-deterministically.
+        """
+        return sequential(self.pre_map @ lexicon)

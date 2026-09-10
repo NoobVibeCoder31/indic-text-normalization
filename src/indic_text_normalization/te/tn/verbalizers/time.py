@@ -15,7 +15,12 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.te.constants import NOT_QUOTE, GraphFst, delete_space, insert_space
+from indic_text_normalization.core.graph_utils import (
+    delete_space,
+    GraphFst,
+    insert_space,
+    NOT_QUOTE,
+)
 from indic_text_normalization.te.morphology import (
     NOT_ONE,
     ONE,

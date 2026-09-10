@@ -14,6 +14,7 @@ notes column, so provenance is recorded here per table. Digits in keys are Telug
 | `numbers/hundreds_oblique.tsv` | ౨-౯ → రెండు వందల … | Written here: oblique stems before a remainder (205 → రెండు వందల ఐదు) |
 | `numbers/scale_words.tsv` | scale word → trailing zeros → expand\|keep | Written here. `expand` multiplies the amount out (ఐదు దశాంశం ఐదు వేలు → 5500); `keep` leaves the written idiom (5.5 లక్షలు) |
 | `numbers/itn_prose_phrases.tsv` | phrases where a numeral word is a pronoun or an approximation idiom | Written here; col 2 is the reason. Protected verbatim by the ITN prose tagger |
+| `numbers/count_nouns.tsv` | nouns counted with a numeral (మంది, రోజు, ఓట్లు …), col 2 a gloss | Written here. TN reads `1 రోజు → ఒక రోజు` and `78,000 మంది → డెబ్బై ఎనిమిది వేల మంది` before these words (plus the unit words); ITN does not invert `ఒక` before them, since it is also the article |
 | `numbers/itn_half_forms.tsv` | fused fractional words → integer/fraction digits (ఒకటిన్నర → 1.5, పదిన్నర → 10.5); bare అర/పావు are left as nouns | Written here; 3 columns; ITN input only |
 | `date/days.tsv` | ౦౧-౩౧ → day-of-month words | Kenpath |
 | `date/months.tsv` | ౦౧-౧౨ → జనవరి … డిసెంబర్ | Kenpath |
@@ -45,6 +46,9 @@ Formal / textbook register was chosen for TN output. Items a native reviewer sho
 5. `1100 → వెయ్యి వంద` (not `పదకొండు వందలు`); years 1100–1999 read as hundreds in dates
    (`1947 → పందొమ్మిది వందల నలభై ఏడు`), and ITN accepts both.
 6. Fractions: `3/4 → నాలుగింట మూడు వంతులు`, `1/2 → రెండింట ఒక వంతు`; ITN also accepts `మూడు బై నాలుగు`.
+    The vulgar signs read as everyday words: `½ → అర`, `¼ → పావు`, `¾ → ముప్పావు`, `1½ → ఒకటిన్నర`
+    (a half fuses onto a vowel-final integer), `2¾ → రెండు మరియు ముప్పావు`; ITN reads those back as
+    decimals (`5.5`, `2.75`). A written `3/4 వంతు` is not read with the noun twice.
 7. Time: `1:00 → ఒంటి గంట`; `10:30 → పది గంటల ముప్పై నిమిషాలు`; `10:01 → పది గంటల ఒక నిమిషం`;
    AM/PM → `పూర్వాహ్నం` / `అపరాహ్నం`. Bare `X గంటలు` is a duration in ITN and is not converted.
 8. Money: plural currency nouns (`₹50 → యాభై రూపాయలు`), oblique before paise
@@ -65,3 +69,10 @@ Formal / textbook register was chosen for TN output. Items a native reviewer sho
     An operator word between two numbers is therefore read as the sign of the second
     (`ఐదు ప్లస్ మూడు సమానం ఎనిమిది → 5 +3 సమానం 8`); `=` itself is a TN-only rewrite, which
     ITN leaves as it found it.
+15. Counting: `1 <count noun> → ఒక <noun>` and a plural scale word takes its oblique before a count
+    noun (`78,000 మంది → డెబ్బై ఎనిమిది వేల మంది`), for the nouns in `numbers/count_nouns.tsv` and the
+    unit words. ITN reverses `ఒక` only before a unit word (`ఒక కిలోగ్రామ్ → 1 కిలోగ్రామ్`): before
+    other nouns it is also the indefinite article (`ఒక రోజు`, "one day"), so `1 రోజు` does not round-trip.
+16. Hundreds of crores are one place beyond the TN cardinal (which reads ten or more digits digit by
+    digit), so ITN reads them itself: `ఐదు వందల కోట్లు → 5000000000`; money keeps the written idiom
+    (`ఐదు వందల కోట్ల రూపాయలు → ₹500 కోట్లు`, `ఒక లక్ష కోట్ల రూపాయలు → ₹1 లక్ష కోట్లు`).

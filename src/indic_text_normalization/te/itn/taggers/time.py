@@ -5,10 +5,10 @@ ITN tagger converting spoken Telugu times to digits.
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.core.utils import load_labels
-from indic_text_normalization.te.constants import DIGIT, TE_TO_ASCII_DIGIT, GraphFst, delete_space
+from indic_text_normalization.core.utils import data_path, load_labels
+from indic_text_normalization.core.graph_utils import delete_space, DIGIT, GraphFst
+from indic_text_normalization.te.constants import LANG, TE_TO_ASCII_DIGIT
 from indic_text_normalization.te.itn.taggers.cardinal import CardinalFst
-from indic_text_normalization.te.utils import get_abs_path
 
 # Suffixed hour/minute/second nouns and the written suffix they carry.
 SUFFIXED_HOUR_WORDS = [
@@ -42,7 +42,7 @@ def _table_words(name: str) -> pynini.Fst:
     """
     Spoken word -> ASCII digits for one time table (keys are Telugu digits).
     """
-    rows = [r for r in load_labels(get_abs_path(f"data/time/{name}.tsv")) if len(r) >= 2]
+    rows = [r for r in load_labels(data_path(LANG, f"time/{name}.tsv")) if len(r) >= 2]
     to_ascii = pynini.closure(pynini.union(TE_TO_ASCII_DIGIT, DIGIT))
     return (pynini.invert(pynini.string_map([(k, v) for k, v, *_ in rows])) @ to_ascii).optimize()
 
@@ -63,10 +63,10 @@ class TimeFst(GraphFst):
         # plain number so ఇరవై ఐదు గంటలకు is 25 గంటలకు rather than 20 5:00కు.
         hour_words = pynini.union(
             cardinal.words_to_digits,
-            cardinal.pre_map @ (_table_words("hours") | pynini.cross("ఒకటి", "1")),
+            cardinal.read(_table_words("hours") | pynini.cross("ఒకటి", "1")),
         ).optimize()
-        minute_words = cardinal.pre_map @ (_table_words("minutes") | pynini.cross("ఒక", "01"))
-        second_words = cardinal.pre_map @ (_table_words("seconds") | pynini.cross("ఒక", "01"))
+        minute_words = cardinal.read(_table_words("minutes") | pynini.cross("ఒక", "01"))
+        second_words = cardinal.read(_table_words("seconds") | pynini.cross("ఒక", "01"))
 
         def suffixed(pairs: list[tuple[str, str]]) -> pynini.Fst:
             return pynutil.insert(' suffix: "') + pynini.string_map(pairs) + pynutil.insert('"')
@@ -131,7 +131,7 @@ class TimeFst(GraphFst):
         # Half-hour idiom: పదిన్నర గంటలకు -> 10:30.
         half_rows = [
             r
-            for r in load_labels(get_abs_path("data/numbers/itn_half_forms.tsv"))
+            for r in load_labels(data_path(LANG, "numbers/itn_half_forms.tsv"))
             if len(r) >= 3 and r[1] != "0"
         ]
         half_words = pynini.string_map([(w, ip) for w, ip, _ in half_rows])

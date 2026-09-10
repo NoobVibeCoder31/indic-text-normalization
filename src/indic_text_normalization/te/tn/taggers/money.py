@@ -15,21 +15,19 @@
 import pynini
 from pynini.lib import pynutil
 
+from indic_text_normalization.core.utils import data_path
+from indic_text_normalization.core.graph_utils import DIGIT, GraphFst, insert_space
 from indic_text_normalization.te.constants import (
     CASE_SUFFIXES,
-    DIGIT,
+    LANG,
     POINT_WORD,
+    RANGE_WORD,
     TE_DIGIT,
-    GraphFst,
-    insert_space,
 )
 from indic_text_normalization.te.morphology import OBLIQUE_FINAL
 from indic_text_normalization.te.tn.taggers.cardinal import CardinalFst
-from indic_text_normalization.te.utils import get_abs_path
 
-currency_graph = pynini.string_file(get_abs_path("data/money/currency.tsv"))
-
-RANGE_WORD = "నుండి"
+currency_graph = pynini.string_file(data_path(LANG, "money/currency.tsv"))
 
 
 class MoneyFst(GraphFst):

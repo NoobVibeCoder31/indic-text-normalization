@@ -5,19 +5,17 @@ ITN tagger converting spoken Tamil numbers to ASCII digits.
 import pynini
 from pynini.lib import pynutil
 
+from indic_text_normalization.core.graph_utils import CHAR, DIGIT, GraphFst, sequential, SIGMA
 from indic_text_normalization.ta.constants import (
-    CHAR,
-    DIGIT,
+    LANG,
     MINUS_WORD,
     PLUS_WORD,
-    SIGMA,
     TA_LETTER,
     TA_TO_ASCII_DIGIT,
-    GraphFst,
 )
 from indic_text_normalization.ta.itn.ambiguity import LICENSED, ambiguous_words
 from indic_text_normalization.ta.itn.fused import half_form_rows
-from indic_text_normalization.ta.itn.scales import expanded_scale_words
+from indic_text_normalization.core.scales import expanded_scale_words
 from indic_text_normalization.ta.tn.taggers.cardinal import CardinalFst as TnCardinalFst
 
 # Colloquial (spoken/ASR) forms rewritten to the formal words the grammar knows.
@@ -196,7 +194,7 @@ def _scale_expanded(plain: pynini.Fst) -> pynini.Fst:
     Multiply out a scale word small enough for it, e.g. ஐந்து புள்ளி ஐந்து ஆயிரம் -> 5500.
     """
     graphs = []
-    for word, zeros in expanded_scale_words():
+    for word, zeros in expanded_scale_words(LANG):
         # The fractional digits shift left by the scale's zero count, so the padding
         # inserted after them follows the width that matched.
         shifted = pynini.union(
@@ -244,9 +242,9 @@ class CardinalFst(GraphFst):
         # The TN grammar emits a leading space before நூற்று forms, so allow inserting one.
         to_ascii = pynini.closure(pynini.union(TA_TO_ASCII_DIGIT, DIGIT))
         optional_leading_space = pynini.closure(pynutil.insert(" "), 0, 1) + pynini.closure(CHAR)
-        inverted = (
+        inverted = sequential(
             optional_leading_space @ pynini.invert(tn_cardinal.itn_input_graph) @ to_ascii
-        ).optimize()
+        )
 
         # The pre-map rewrites colloquial phrasing but would destroy the sandhi forms
         # TN itself emits (இருபத்திரண்டு), so the raw input is tried first.
@@ -254,28 +252,28 @@ class CardinalFst(GraphFst):
         # a small composition instead of a second copy of the whole number grammar.
         pre_map = pynini.compose(_pre_map_domain(), _spoken_pre_map()).optimize()
         accepted = inverted
-        plain = pynini.union(
-            pynutil.add_weight(accepted, -0.01),
-            pre_map @ accepted,
-            _hundreds_split() @ accepted,
-        ).optimize()
-        self.words_to_digits = pynini.union(plain, _scale_expanded(plain)).optimize()
+        plain = sequential(
+            pynini.union(
+                pynutil.add_weight(accepted, -0.01),
+                pre_map @ accepted,
+                _hundreds_split() @ accepted,
+            )
+        )
+        self.words_to_digits = sequential(pynini.union(plain, _scale_expanded(plain)))
 
         # ஒரு / ஓர் are also the indefinite article, so they count as numbers only
         # where a currency, unit or clock word makes the numeric reading explicit.
         articles = pynini.string_map(ambiguous_words(LICENSED)).optimize()
-        self.words_to_digits_with_article = pynini.union(self.words_to_digits, articles).optimize()
+        self.words_to_digits_with_article = sequential(pynini.union(self.words_to_digits, articles))
 
         # Case-suffixed numbers keep their suffix: இரண்டாயிரத்து இருபத்துநான்கில் -> 2024ல்.
         suffixed_out = pynini.closure(pynini.union(TA_TO_ASCII_DIGIT, DIGIT), 1) + pynini.closure(
             TA_LETTER, 1
         )
-        inverted_suffixed = (
-            pynini.invert(tn_cardinal.itn_suffixed_graph) @ suffixed_out
-        ).optimize()
-        self.suffixed_words_to_digits = pynini.union(
-            pynutil.add_weight(inverted_suffixed, -0.01), pre_map @ inverted_suffixed
-        ).optimize()
+        inverted_suffixed = sequential(pynini.invert(tn_cardinal.itn_suffixed_graph) @ suffixed_out)
+        self.suffixed_words_to_digits = sequential(
+            pynini.union(pynutil.add_weight(inverted_suffixed, -0.01), pre_map @ inverted_suffixed)
+        )
 
         optional_sign = pynini.closure(
             pynutil.insert("negative: ") + pynini.cross(f"{MINUS_WORD} ", '"true" ')

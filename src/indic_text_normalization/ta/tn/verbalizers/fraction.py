@@ -16,14 +16,14 @@ import pynini
 from pynini.examples import plurals
 from pynini.lib import pynutil
 
-from indic_text_normalization.ta.constants import (
-    MINUS,
+from indic_text_normalization.core.graph_utils import (
+    delete_space,
+    GraphFst,
+    insert_space,
     NOT_QUOTE,
     SIGMA,
-    GraphFst,
-    delete_space,
-    insert_space,
 )
+from indic_text_normalization.ta.constants import MINUS
 
 
 class FractionFst(GraphFst):

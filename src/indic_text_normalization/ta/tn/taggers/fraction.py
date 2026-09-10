@@ -15,7 +15,8 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.ta.constants import DIGIT, TA_DIGIT, GraphFst
+from indic_text_normalization.core.graph_utils import DIGIT, GraphFst
+from indic_text_normalization.ta.constants import TA_DIGIT
 from indic_text_normalization.ta.tn.taggers.cardinal import CardinalFst
 
 # Vulgar fraction signs as (sign, numerator word, denominator word).
