@@ -19,8 +19,8 @@ Script-agnostic FST building blocks shared by every language package.
 
 import logging
 import string
-
 import sys
+from functools import cache
 from unicodedata import category
 
 import pynini
@@ -33,9 +33,9 @@ LOWER = pynini.union(*string.ascii_lowercase).optimize()
 UPPER = pynini.union(*string.ascii_uppercase).optimize()
 ALPHA = pynini.union(LOWER, UPPER).optimize()
 
-NON_BREAKING_SPACE = " "
+NON_BREAKING_SPACE = "\u00a0"  # U+00A0 NO-BREAK SPACE, the joiner inside a token value
 SPACE = " "
-WHITE_SPACE = pynini.union(" ", "\t", "\n", "\r", " ").optimize()
+WHITE_SPACE = pynini.union(" ", "\t", "\n", "\r", "\u00a0").optimize()
 NOT_SPACE = pynini.difference(CHAR, WHITE_SPACE).optimize()
 NOT_QUOTE = pynini.difference(CHAR, r'"').optimize()
 SIGMA = pynini.closure(CHAR)
@@ -57,9 +57,20 @@ delete_preserve_order = pynini.closure(
     | (pynutil.delete(' field_order: "') + NOT_QUOTE + pynutil.delete('"'))
 )
 
-# Every Unicode punctuation code point. ~1.1 M category lookups, so computed once and
-# shared by the TN and ITN punctuation taggers rather than once per module.
-PUNCT_UNICODE = [chr(i) for i in range(sys.maxunicode + 1) if category(chr(i)).startswith("P")]
+
+@cache
+def punctuation_code_points() -> list[str]:
+    """
+    Every Unicode punctuation code point, computed once per process on first use.
+
+    The scan is ~1.1 M category lookups, so it is deferred: a process that only loads a
+    compiled grammar from the FAR cache never pays for it.
+    """
+    return [chr(i) for i in range(sys.maxunicode + 1) if category(chr(i)).startswith("P")]
+
+
+# Currency symbols the money grammars read; also what may precede a re-fed written amount.
+CURRENCY_SYMBOLS = "₹$£€¥₩₺৳₦"
 
 MIN_NEG_WEIGHT = -0.0001
 MIN_POS_WEIGHT = 0.0001
@@ -70,6 +81,37 @@ def unweighted(fst: pynini.Fst) -> pynini.Fst:
     Drop every arc weight, leaving only the consuming grammar's own weights to rank paths.
     """
     return pynini.arcmap(fst.optimize(), map_type="rmweight").optimize()
+
+
+def sequential(fst: pynini.Fst) -> pynini.Fst:
+    """
+    Input-deterministic form of an acyclic transducer, for grammars that read spoken words.
+
+    An inverted TN grammar emits its digits *before* consuming any input (the TN side
+    deleted them), so composing a string with it explores the whole digit skeleton at
+    every word start, in every tagger that embeds it. Determinizing on the input delays
+    each output until the input that decides it has been read, so composition explores
+    one path per input prefix. The language, outputs and weights are unchanged.
+
+    Parameters
+    ----------
+    fst : ``pynini.Fst``
+        An acyclic transducer; several outputs for one input are kept as alternatives.
+
+    Returns
+    -------
+    ``pynini.Fst``
+        The optimized input-deterministic transducer.
+
+    Raises
+    ------
+    ``ValueError``
+        If ``fst`` is cyclic, because determinization may then not terminate.
+    """
+    acyclic = pynini.ACYCLIC  # type: ignore[attr-defined]
+    if fst.properties(acyclic, True) != acyclic:
+        raise ValueError("sequential() needs an acyclic transducer.")
+    return pynini.determinize(fst, det_type="nonfunctional").optimize()
 
 
 def generator_main(file_name: str, graphs: dict[str, pynini.Fst]) -> None:
@@ -147,4 +189,4 @@ class GraphFst:
             + delete_space
             + pynutil.delete("}")
         )
-        return res @ pynini.cdrewrite(pynini.cross(" ", " "), "", "", SIGMA)
+        return res @ pynini.cdrewrite(pynini.cross("\u00a0", " "), "", "", SIGMA)

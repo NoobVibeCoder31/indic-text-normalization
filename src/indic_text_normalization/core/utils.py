@@ -6,6 +6,8 @@ import csv
 from importlib import resources
 from pathlib import Path
 
+import pynini
+
 
 def data_path(lang: str, *parts: str) -> str:
     """
@@ -16,7 +18,7 @@ def data_path(lang: str, *parts: str) -> str:
     lang : ``str``
         Language code, e.g. ``ta``.
     parts : ``str``
-        Path components below ``<lang>/data/``.
+        Path below ``<lang>/data/``, as one string (``numbers/digit.tsv``) or components.
 
     Returns
     -------
@@ -57,3 +59,15 @@ def load_labels(path: str, *, min_fields: int = 1) -> list[list[str]]:
                 raise ValueError(f"{path}:{line_number} has {len(row)} of {min_fields} columns")
             rows.append(row)
     return rows
+
+
+def table_fst(path: str, *, key: int = 0, value: int = 1) -> pynini.Fst:
+    """
+    Compile two columns of a TSV table into an optimized string map.
+
+    Unlike ``pynini.string_file`` this tolerates a third column that is not a weight, so
+    it is the loader for the three-column tables (singular, plural, oblique).
+    """
+    width = max(key, value) + 1
+    rows = load_labels(path, min_fields=width)
+    return pynini.string_map([(row[key], row[value]) for row in rows]).optimize()

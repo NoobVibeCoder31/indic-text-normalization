@@ -2,15 +2,14 @@
 Unit tests for the public API and grammar registry.
 """
 
-import pytest
-
-from indic_text_normalization import InverseNormalizer, Normalizer
-from indic_text_normalization.core.registry import ITN, TN, supported_languages
 from pathlib import Path
 
+import pytest
+
 import indic_text_normalization
-from indic_text_normalization import api
+from indic_text_normalization import InverseNormalizer, Normalizer, api
 from indic_text_normalization.core import cache
+from indic_text_normalization.core.registry import ITN, TN, supported_languages
 
 
 class TestNormalizer:
@@ -41,22 +40,46 @@ class TestNormalizer:
         assert ta_itn.inverse_normalize("") == ""
         assert ta_itn.inverse_normalize(" \t ") == ""
 
-    def test_registry_lists_tamil(self) -> None:
+    @pytest.mark.parametrize("lang", ["ta", "te"])
+    def test_registry_lists_language(self, lang: str) -> None:
         """
-        Tamil is registered for both directions.
+        Every shipped language is registered for both directions.
         """
-        assert "ta" in supported_languages(TN)
-        assert "ta" in supported_languages(ITN)
+        assert lang in supported_languages(TN)
+        assert lang in supported_languages(ITN)
 
-    def test_far_cache_round_trip(self, tmp_path: object, ta_tn: Normalizer) -> None:
+    def test_empty_input_telugu(self, te_tn: Normalizer, te_itn: InverseNormalizer) -> None:
         """
-        A cached grammar loads from FAR and produces identical output.
+        Empty and whitespace-only inputs come back empty for Telugu too.
         """
-        cached = Normalizer(lang="ta", cache_dir=str(tmp_path))
-        reloaded = Normalizer(lang="ta", cache_dir=str(tmp_path))
-        for text in ["123", "₹50", "10:30"]:
-            assert cached.normalize(text) == ta_tn.normalize(text)
-            assert reloaded.normalize(text) == ta_tn.normalize(text)
+        assert te_tn.normalize("") == ""
+        assert te_tn.normalize(" \t ") == ""
+        assert te_itn.inverse_normalize("   ") == ""
+
+    @pytest.mark.parametrize("lang", ["ta", "te"])
+    def test_far_cache_round_trip(
+        self,
+        tmp_path: Path,
+        lang: str,
+        request: pytest.FixtureRequest,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """
+        A grammar saved to FAR loads back and produces identical output.
+
+        The session normalizer's compiled FSTs are written to the cache instead of
+        compiling a second time, so this exercises the load path in seconds.
+        """
+        live: Normalizer = request.getfixturevalue(f"{lang}_tn")
+        engine = live._engine
+        grammar = cache.Grammar(engine.classify, engine.verbalize, engine.pre_pass)
+        cache.save(cache.far_path(tmp_path, lang, TN), grammar)
+        # A failed load would silently recompile, so compiling is made impossible here.
+        monkeypatch.setattr(api, "_compile", lambda _factory: pytest.fail("cache miss"))
+        reloaded = Normalizer(lang=lang, cache_dir=str(tmp_path))
+        assert (reloaded._engine.pre_pass is None) == (engine.pre_pass is None)
+        for text in ["123", "₹50", "10:30", "5%కి", "+91 9876543210", "5+3=8"]:
+            assert reloaded.normalize(text) == live.normalize(text)
 
 
 class TestGrammarCacheIdentity:

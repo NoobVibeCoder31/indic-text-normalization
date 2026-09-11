@@ -5,12 +5,8 @@ ITN tagger converting spoken Tamil times to digits.
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.ta.constants import (
-    CLOCK_MAX_HOUR,
-    CLOCK_MAX_MINUTE,
-    GraphFst,
-    delete_space,
-)
+from indic_text_normalization.core.graph_utils import delete_space, GraphFst
+from indic_text_normalization.ta.constants import CLOCK_MAX_HOUR, CLOCK_MAX_MINUTE
 from indic_text_normalization.ta.itn.fused import (
     FRACTION_MINUTES,
     half_form_rows,

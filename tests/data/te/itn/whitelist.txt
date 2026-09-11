@@ -1,0 +1,6 @@
+# ITN keeps abbreviation words unchanged
+డాక్టర్~డాక్టర్
+ఐదు శాతం~5 శాతం
+# a spoken sign word before a number is the sign, for ప్లస్ as it already was for మైనస్
+# (only the plus form is listed: a spaced "-" is a range on the way back through TN)
+ఐదు ప్లస్ మూడు సమానం ఎనిమిది~5 +3 సమానం 8

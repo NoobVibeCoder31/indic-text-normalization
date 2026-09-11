@@ -15,12 +15,8 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.ta.constants import (
-    GraphFst,
-    DIGIT,
-    TA_DIGIT,
-    insert_space,
-)
+from indic_text_normalization.core.graph_utils import DIGIT, GraphFst, insert_space
+from indic_text_normalization.ta.constants import TA_DIGIT
 from indic_text_normalization.ta.tn.taggers.cardinal import CardinalFst
 
 # Scale words that may follow a number (5 லட்சம், 1.5 கோடி, 2 lakh, 5 million).

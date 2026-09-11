@@ -7,7 +7,13 @@ from pathlib import Path
 
 from indic_text_normalization.core import cache
 from indic_text_normalization.core.engine import NormalizationEngine
-from indic_text_normalization.core.registry import ITN, REGISTRY, TN, supported_languages
+from indic_text_normalization.core.registry import (
+    ITN,
+    REGISTRY,
+    TN,
+    GrammarFactory,
+    supported_languages,
+)
 
 
 def _build_engine(
@@ -37,12 +43,19 @@ def _build_engine(
             cached = cache.load(path)
             if cached is not None:
                 return NormalizationEngine(*cached)
-        classify = factory.classify().fst
-        verbalize = factory.verbalize().fst
-        cache.save(path, classify, verbalize)
-        return NormalizationEngine(classify, verbalize)
+        grammar = _compile(factory)
+        cache.save(path, grammar)
+        return NormalizationEngine(*grammar)
 
-    return NormalizationEngine(factory.classify().fst, factory.verbalize().fst)
+    return NormalizationEngine(*_compile(factory))
+
+
+def _compile(factory: GrammarFactory) -> cache.Grammar:
+    """
+    Compile the classify and verbalize grammars of one factory.
+    """
+    classify = factory.classify()
+    return cache.Grammar(classify.fst, factory.verbalize().fst, classify.pre_pass)
 
 
 class Normalizer:

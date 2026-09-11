@@ -1,0 +1,34 @@
+# input~expected[~alt_expected...]
+5వ~ఐదవ
+1వ~మొదటి
+2వ~రెండవ
+3వ~మూడవ
+8వ~ఎనిమిదవ
+10వ~పదవ
+11వ~పదకొండవ
+20వ~ఇరవయ్యవ
+21వ~ఇరవై ఒకటవ
+100వ~వందవ
+200వ~రెండు వందలవ
+1000వ~వెయ్యవ
+౫వ~ఐదవ
+# hyphenated ordinal
+3-వ~మూడవ
+# inflected tails are carried over
+5వది~ఐదవది
+1వది~మొదటిది
+5వదానికి~ఐదవదానికి
+3వదిగా~మూడవదిగా
+# colloquial -వో is the fused -ో ordinal
+5వో~ఐదో
+10వో~పదో
+# ordinal before a noun stays an ordinal; వరకు is a case suffix, not an ordinal tail
+5వ తరగతి~ఐదవ తరగతి
+5వరకు~ఐదువరకు
+# English ordinals stay untouched
+1st~1st
+2nd~2nd
+# the scale words take an ordinal stem of their own
+1000వ~వెయ్యవ
+100000వ~లక్షవ
+10000000వ~కోటవ

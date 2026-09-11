@@ -17,9 +17,9 @@ build/
 # Compiled grammar archives
 *.far
 
-# Benchmark artefacts
-benchmarks/reports/
-benchmarks/.far_cache/
+# Benchmark harness and artefacts: kept out-of-tree, not part of the published repo.
+benchmarks/
+
 temp/
 
 # Verbose engineering log behind CHANGELOG.md; not part of the published history.

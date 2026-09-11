@@ -1,0 +1,64 @@
+# input~expected[~alt_expected...]
+యాభై రూపాయలు~₹50
+యాభై రూపాయల యాభై పైసలు~₹50.50
+వంద డాలర్లు~$100
+యాభై పైసలు~₹0.50
+ఒక రూపాయి~₹1
+ఒక రూపాయి యాభై పైసలు~₹1.50
+ఒక పైసా~₹0.01
+రూపాయలు యాభై~₹50
+రెండు వేల రూపాయలు~₹2000
+లక్ష రూపాయలు~₹1 లక్ష
+ఒక లక్ష రూపాయలు~₹1 లక్ష
+నూట ఒకటి రూపాయలు~₹101
+ఐదు వందల రూపాయలు~₹500
+యాభై యూరోలు~€50
+ఇరవై పౌండ్లు~£20
+# a lone paise digit is a tens value
+ఐదు పైసలు~₹0.05
+యాభై రూపాయల ఐదు పైసలు~₹50.05
+# quantity idiom kept in the written form (a bare లక్ష/కోటి counts one); thousands are spelled out
+ఐదు కోట్ల రూపాయలు~₹5 కోట్లు
+రెండు దశాంశం ఐదు లక్షల రూపాయలు~₹2.5 లక్షలు
+ఒక కోటి రూపాయలు~₹1 కోటి
+కోటి రూపాయలు~₹1 కోటి
+ఐదు లక్షల యాభై వేల రూపాయలు~₹550000
+# spoken negative folds in
+ఋణ ఐదు వందల రూపాయలు~-₹500
+మైనస్ ఐదు వందల రూపాయలు~-₹500
+# case suffix on the currency word
+నూట యాభై రూపాయలకి~₹150కి
+యాభై రూపాయలకు~₹50కు
+యాభై రూపాయలలో~₹50లో
+ఐదు కోట్ల రూపాయలకి~₹5 కోట్లుకి
+# probe-fix T13: spoken money ranges
+ఐదు నుండి పది రూపాయలు~₹5-10
+ఐదు నుంచి పది రూపాయలు~₹5-10
+# review-fix R10: every major/minor pair in major_minor_currencies.tsv inverts
+ఐదు రూపాయల యాభై పైసలు~₹5.50
+ఐదు డాలర్ల యాభై సెంట్లు~$5.50
+ఐదు యూరోల యాభై సెంట్లు~€5.50
+ఐదు పౌండ్ల యాభై పెన్నీలు~£5.50
+ఐదు పౌండ్ల యాభై పెన్స్~£5.50
+ఐదు యెన్ల యాభై సెన్లు~¥5.50
+ఐదు వోన్ల యాభై జియోన్లు~₩5.50
+ఐదు లీరాల యాభై కురుష్లు~₺5.50
+ఐదు టాకాల యాభై పైసలు~৳5.50
+ఐదు నైరాల యాభై కోబోలు~₦5.50
+# review-fix R10: a minor unit belongs to one major currency, so a mismatched pair reads
+# as two separate amounts rather than being silently merged
+ఐదు డాలర్లు యాభై పైసలు~$5 ₹0.50
+ఐదు రూపాయలు యాభై సెంట్లు~₹5 $0.50
+# review-fix R10: minor-unit-only amounts carry their own symbol
+యాభై సెంట్లు~$0.50
+యాభై పెన్నీలు~£0.50
+# review-fix R11: a case suffix on the minor-unit word is carried over
+యాభై రూపాయల యాభై పైసలకి~₹50.50కి
+యాభై రూపాయల యాభై పైసలకు~₹50.50కు
+# sweep-fix S6: stacked scale words keep the written idiom
+ఒక లక్ష కోట్ల రూపాయలు~₹1 లక్ష కోట్లు
+రెండు లక్షల కోట్ల రూపాయలు~₹2 లక్షల కోట్లు
+ఐదు వందల కోట్ల రూపాయలు~₹500 కోట్లు
+# sweep-fix S1: a re-fed written amount with its scale word passes through inside a sentence
+₹5 కోట్లు ఐదు మంది~₹5 కోట్లు 5 మంది
+ఐదు మంది ₹2.5 లక్షలు~5 మంది ₹2.5 లక్షలు
