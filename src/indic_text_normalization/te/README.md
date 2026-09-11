@@ -4,12 +4,6 @@ Reference numbers for the Telugu TN and ITN grammars, so a future change can be 
 against a known point rather than a remembered one. Same method and machine as
 [the Tamil baseline](../ta/README.md).
 
-```bash
-uv run python benchmarks/perf.py build tn  --lang te --cache-dir /tmp/perf
-uv run python benchmarks/perf.py build itn --lang te --cache-dir /tmp/perf
-uv run python benchmarks/perf.py measure   --lang te --cache-dir /tmp/perf
-```
-
 Measured 2026-09-10, single-threaded, on an otherwise idle machine.
 
 ## Grammar compilation (cold, no cache)

@@ -62,8 +62,7 @@ _TELUGU_ALPHABET = (
 
 # Round-trip shapes: every units word, every tens row with a unit and a teen, each hundreds
 # form with a zero, unit, teen and tens remainder, and every scale word in its exact and
-# oblique form next to every remainder type. The exhaustive sweep lives in
-# ``benchmarks/roundtrip_census.py``.
+# oblique form next to every remainder type.
 _BELOW_HUNDRED = [*range(0, 20), *[t * 10 + u for t in range(2, 10) for u in (0, 1, 5, 9)]]
 _HUNDREDS = [h * 100 + r for h in range(1, 10) for r in (0, 1, 5, 10, 11, 19, 50, 99)]
 _SCALES = [

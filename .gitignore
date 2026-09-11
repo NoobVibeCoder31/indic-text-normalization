@@ -17,10 +17,8 @@ build/
 # Compiled grammar archives
 *.far
 
-# Benchmark artefacts
-benchmarks/reports/
-benchmarks/.far_cache/
-benchmarks/*.csv
+# Benchmark harness and artefacts: kept out-of-tree, not part of the published repo.
+benchmarks/
 
 temp/
 

@@ -14,7 +14,7 @@ SRC_ROOT = Path(__file__).parent.parent / "src" / "indic_text_normalization"
 LANGUAGES = sorted({lang for lang, _ in REGISTRY})
 TSV_FILES = sorted(p for lang in LANGUAGES for p in (SRC_ROOT / lang / "data").rglob("*.tsv"))
 
-# Tables kept for provenance or benchmarks that no grammar reads.
+# Tables kept for provenance or out-of-tree tooling that no grammar reads.
 KNOWN_UNUSED = {
     "ta/data/digits.tsv",
     "ta/data/numbers/thousands.tsv",

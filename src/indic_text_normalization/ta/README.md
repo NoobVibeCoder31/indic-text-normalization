@@ -3,17 +3,10 @@
 Reference numbers for the Tamil TN and ITN grammars, so a future change can be compared
 against a known point rather than a remembered one.
 
-Reproduce with [`benchmarks/perf.py`](../../../benchmarks/perf.py), which pins the
-sample sentences below. **Compare against the same samples** — the script's sample lists
-should not be edited casually, because changing one invalidates comparison with this table.
-
-```bash
-# Each direction builds in its own process: building both in one inflates the second
-# under the first's memory pressure.
-uv run python benchmarks/perf.py build tn  --lang ta --cache-dir /tmp/perf
-uv run python benchmarks/perf.py build itn --lang ta --cache-dir /tmp/perf
-uv run python benchmarks/perf.py measure   --lang ta --cache-dir /tmp/perf
-```
+Measured with an out-of-tree performance harness that pins the sample sentences below.
+**Compare against the same samples** — the pinned lists should not be edited casually,
+because changing one invalidates comparison with this table. Each direction is built in its
+own process: building both in one inflates the second under the first's memory pressure.
 
 ## Reference machine
 

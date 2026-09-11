@@ -129,20 +129,6 @@ of NeMo — `NOTICE` records what came from where.
 
 See `CLAUDE.md` for the full project rules.
 
-## Benchmarks
-
-`benchmarks/ta_tn_benchmark.csv` and `benchmarks/te_tn_benchmark.csv` hold 10k+ TN rows
-each (`input,expected,type`). Run one in parallel and get accuracy per semiotic class plus
-a mismatch report:
-
-```bash
-uv run python benchmarks/run_benchmark.py benchmarks/ta_tn_benchmark.csv --workers 8
-uv run python benchmarks/run_benchmark.py benchmarks/te_tn_benchmark.csv --lang te --workers 8
-```
-
-See `benchmarks/README.md` for the schema and how the dataset is generated, and
-`benchmarks/perf.py` for the latency and memory baseline.
-
 ## Adding a language
 
 1. Create `src/indic_text_normalization/<lang>/` with `data/`, `tn/`, and `itn/`
@@ -192,10 +178,9 @@ for measured build time, memory and per-sentence latency.
 - **Any other approach.** If you have a better idea, open an issue. This is an open
   question, not a decided roadmap.
 
-**How a replacement would be judged.** Measured with
-[`benchmarks/perf.py`](benchmarks/perf.py) on the same pinned sentences, holding
-accuracy on the golden tests and the round-trip census. "Faster" has to mean faster on the
-same inputs, or it means nothing.
+**How a replacement would be judged.** Measured on the same pinned sentences as the
+per-language performance baselines, holding accuracy on the golden tests and the
+round-trip census. "Faster" has to mean faster on the same inputs, or it means nothing.
 
 ## Contributing
 
