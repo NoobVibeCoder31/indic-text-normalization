@@ -46,14 +46,19 @@ class ItnTelephoneFst(GraphFst):
             digit |= pynini.cross(word, "0")
         digit = digit.optimize()
 
+        # A case suffix on the last digit word is carried over (…సున్నాకి -> …0కి,
+        # …പൂജ്യത്തിൽ -> …0ൽ), through the cardinal's own suffix reading.
+        last = digit
+        if profile.case_suffixes:
+            suffixed_digit = cardinal.words_to_digits_suffixed @ (
+                DIGIT + pynini.closure(profile.letter, 1)
+            )
+            last = pynini.union(digit, suffixed_digit)
         # Three or more digit words in a row are a digit string (phone, PIN, OTP, 007);
         # after a country code the number is a 10-digit mobile or 11-digit landline.
-        number = digit + pynini.closure(delete_space + digit, 2)
-        cc_number = digit + pynini.closure(delete_space + digit, 9, 10)
-        # A case suffix on the last digit word is carried over (…సున్నాకి -> …0కి).
+        number = digit + pynini.closure(delete_space + digit, 1) + delete_space + last
+        cc_number = digit + pynini.closure(delete_space + digit, 8, 9) + delete_space + last
         suffix = pynini.accep("")
-        if profile.case_suffixes:
-            suffix = pynini.closure(pynini.union(*profile.case_suffixes), 0, 1)
 
         plus = pynini.cross(pynini.union(*profile.positive_words), "+")
         # The plus word followed by one to three digit words, or by a spoken number.

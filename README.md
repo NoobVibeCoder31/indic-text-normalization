@@ -143,6 +143,8 @@ everything that is not language-specific:
 
 | `core/` module | What it gives a new language |
 |---|---|
+| `profile.py` | `LanguageProfile` — the script block, digits, sign/point/range words and glued case suffixes every shared tagger reads |
+| `tn_taggers/`, `itn_taggers/` | every semiotic-class tagger (date, decimal, fraction, measure, money, ordinal, range, telephone, time, and the ITN cardinal, prose and passthrough) parameterised by the profile and the language's `CardinalBase` subclass, plus the tokenizer pre-pass (`prepass.py`) and the classifier assembly (`classify.py`) |
 | `sentence.py` | `SentenceClassifyFst` / `SentenceVerbalizeFst` — the token-wrapping tokenizer and the sentence verbalizer, plus the written-number passthrough ITN needs |
 | `punctuation.py`, `word.py`, `whitelist.py` | the three taggers that differ only by the script block and the language's own tables |
 | `tn_verbalizers.py`, `itn_verbalizers.py` | every verbalizer whose output is the tagged value itself (cardinal, date, ordinal, range, telephone, whitelist, word; and for ITN also decimal, fraction, money, time) |
@@ -150,9 +152,11 @@ everything that is not language-specific:
 | `scales.py`, `utils.py` | scale-word policy and the TSV loaders |
 | `graph_utils.py` | the FST vocabulary, including `sequential()` — see the note in that file on why an inverted TN grammar must be read input-deterministically |
 
-A language package holds its `constants.py` (digits, script ranges, sign and point words),
-its taggers, and the verbalizers whose output needs the language's morphology (money,
-measure, time, decimal, fraction).
+A language package holds its `constants.py` (the `LanguageProfile` and word lists), its
+`morphology.py` (sandhi), its cardinal number grammar (a `CardinalBase` subclass), the word
+dataclasses that bind the shared taggers, and the verbalizers whose output needs the
+language's morphology (money, measure, time, decimal, fraction) — or the shared
+`Invariant*Fst` verbalizers when its nouns do not inflect.
 
 ## Project direction
 

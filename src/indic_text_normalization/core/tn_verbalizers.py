@@ -206,3 +206,272 @@ class WordFst(GraphFst):
         graph = graph @ pynini.cdrewrite(pynini.cross(" ", ""), "", punct, SIGMA)
         # Multi-word values travel with U+00A0 NO-BREAK SPACE; speak them with plain spaces.
         self.fst = (graph @ _NBSP_TO_SPACE).optimize()
+
+
+def meridiem_by_hour(lang: str, hour_noun: str) -> pynini.Fst:
+    """
+    ``meridiem: "AM"/"PM" hours: "<word>"`` -> the day-part word for that hour, the hour
+    and the hour noun, from ``time/meridiem.tsv`` (hour, AM word, PM word) joined with
+    ``time/hours.tsv``.
+
+    Malayalam, Kannada and Hindi have no fixed AM/PM words: 10:30 AM is "morning" and
+    10:30 PM is "night", so the word is resolved here by the hour.
+    """
+    from indic_text_normalization.core.utils import data_path, load_labels
+
+    hours = {row[0]: row[1] for row in load_labels(data_path(lang, "time/hours.tsv"), min_fields=2)}
+    graphs = []
+    for hour, am, pm in load_labels(data_path(lang, "time/meridiem.tsv"), min_fields=3):
+        word = hours[hour]
+        for marker, day_part in (("AM", am), ("PM", pm)):
+            graphs.append(
+                pynini.cross(
+                    f'meridiem: "{marker}" hours: "{word}"', f"{day_part} {word} {hour_noun}"
+                )
+            )
+    return pynini.union(*graphs).optimize()
+
+
+class InvariantMeasureFst(GraphFst):
+    """
+    Measure verbalizer for a language whose unit nouns do not inflect for number, e.g.
+        measure { amount: "അഞ്ച്" units: "കിലോഗ്രാം" } -> അഞ്ച് കിലോഗ്രാം
+        measure { amount: "ഒന്ന്" units: "കിലോഗ്രാം" } -> ഒരു കിലോഗ്രാം
+
+    Attributes
+    ----------
+    minus_word : ``str``
+        Spoken form of a leading minus sign.
+    amount : ``pynini.Fst``
+        Rewrite of the spoken amount (the counting one, a range's sandhi); identity if none.
+    suffix_field : ``pynini.Fst``
+        Consumes an optional ``suffix`` field, emitting the marked suffix for ``sandhi``.
+    sandhi : ``pynini.Fst``
+        Joins the last noun and the marked suffix.
+    """
+
+    def __init__(
+        self,
+        *,
+        minus_word: str,
+        amount: pynini.Fst,
+        suffix_field: pynini.Fst,
+        sandhi: pynini.Fst,
+        deterministic: bool = True,
+    ) -> None:
+        super().__init__(name="measure", kind="verbalize", deterministic=deterministic)
+
+        optional_sign = pynini.closure(
+            pynini.cross('negative: "true"', f"{minus_word} ") + delete_space, 0, 1
+        )
+        amount_field = pynutil.delete('amount: "') + amount + pynutil.delete('"')
+        units = pynutil.delete('units: "') + pynini.closure(NOT_QUOTE, 1) + pynutil.delete('"')
+        graph = optional_sign + amount_field + delete_space + insert_space + units
+        graph = (graph + suffix_field + delete_preserve_order) @ _NBSP_TO_SPACE
+        self.fst = self.delete_tokens(graph @ sandhi).optimize()
+
+
+class InvariantMoneyFst(GraphFst):
+    """
+    Money verbalizer for a language whose currency nouns do not inflect for number, e.g.
+        money { integer_part: "അൻപത്" currency_maj: "രൂപ" } -> അൻപത് രൂപ
+        money { integer_part: "അൻപത്" currency_maj: "രൂപ" fractional_part: "അൻപത്" currency_min: "centiles" } -> അൻപത് രൂപ അൻപത് പൈസ
+        money { currency_maj: "രൂപ" integer_part: "പൂജ്യം" fractional_part: "അൻപത്" currency_min: "centiles" } -> അൻപത് പൈസ
+
+    Attributes
+    ----------
+    lang : ``str``
+        Language whose ``money/currency_forms.tsv`` and ``money/major_minor_currencies.tsv``
+        name the words.
+    minus_word : ``str``
+        Spoken form of a leading minus sign.
+    amount : ``pynini.Fst``
+        Rewrite of the spoken amount (the counting one, a scale phrase's sandhi).
+    zero_word : ``str``
+        The spoken zero, which a minor-only amount drops (₹0.50 -> അൻപത് പൈസ).
+    suffix_field : ``pynini.Fst``
+        Consumes an optional ``suffix`` field, emitting the marked suffix for ``sandhi``.
+    sandhi : ``pynini.Fst``
+        Joins the last noun and the marked suffix.
+    """
+
+    def __init__(
+        self,
+        *,
+        lang: str,
+        minus_word: str,
+        amount: pynini.Fst,
+        zero_word: str,
+        suffix_field: pynini.Fst,
+        sandhi: pynini.Fst,
+        deterministic: bool = True,
+    ) -> None:
+        super().__init__(name="money", kind="verbalize", deterministic=deterministic)
+        from indic_text_normalization.core.utils import data_path, load_labels
+
+        majors = {
+            row[0] for row in load_labels(data_path(lang, "money/currency_forms.tsv"), min_fields=1)
+        }
+        major_minor = {
+            row[0]: row[1]
+            for row in load_labels(
+                data_path(lang, "money/major_minor_currencies.tsv"), min_fields=2
+            )
+        }
+        integer = pynutil.delete('integer_part: "') + amount + pynutil.delete('"')
+        zero_integer = pynutil.delete(f'integer_part: "{zero_word}"')
+        minor_field = pynutil.delete('currency_min: "centiles"')
+
+        graphs = []
+        for major, minor in major_minor.items():
+            if major not in majors:
+                continue
+            currency = (
+                pynutil.delete('currency_maj: "') + pynutil.delete(major) + pynutil.delete('"')
+            )
+            fraction = (
+                pynutil.delete('fractional_part: "')
+                + amount
+                + pynutil.delete('"')
+                + SPACE
+                + minor_field
+                + pynutil.insert(minor)
+                + suffix_field
+            )
+            graphs.append(integer + SPACE + currency + pynutil.insert(major) + suffix_field)
+            graphs.append(integer + SPACE + currency + pynutil.insert(major) + SPACE + fraction)
+            graphs.append(
+                pynutil.add_weight(
+                    zero_integer
+                    + pynutil.delete(SPACE)
+                    + currency
+                    + pynutil.delete(SPACE)
+                    + fraction,
+                    -0.1,
+                )
+            )
+        optional_sign = pynini.closure(pynini.cross('negative: "true" ', f"{minus_word} "), 0, 1)
+        graph = (optional_sign + pynini.union(*graphs)) @ sandhi
+        self.fst = self.delete_tokens(graph).optimize()
+
+
+class InvariantTimeFst(GraphFst):
+    """
+    Time verbalizer for a language whose clock nouns do not inflect for number, e.g.
+        time { hours: "പത്ത്" minutes: "മുപ്പത്" } -> പത്ത് മണി മുപ്പത് മിനിറ്റ്
+        time { hours: "പത്ത്" suffix: "ന്" } -> പത്ത് മണിക്ക്
+        time { hours: "പത്ത്" minutes: "മുപ്പത്" meridiem: "AM" } -> രാവിലെ പത്ത് മണി മുപ്പത് മിനിറ്റ്
+
+    Attributes
+    ----------
+    lang : ``str``
+        Language whose ``time/meridiem.tsv`` resolves a written AM/PM.
+    nouns : ``tuple[str, str, str]``
+        Hour, minute and second nouns.
+    count : ``pynini.Fst``
+        Rewrite of a minute or second count (the counting one); identity if none.
+    suffix_field : ``pynini.Fst``
+        Consumes an optional ``suffix`` field, emitting the marked suffix for ``sandhi``.
+    sandhi : ``pynini.Fst``
+        Joins the last noun and the marked suffix.
+    """
+
+    def __init__(
+        self,
+        *,
+        lang: str,
+        nouns: tuple[str, str, str],
+        count: pynini.Fst,
+        suffix_field: pynini.Fst,
+        sandhi: pynini.Fst,
+        deterministic: bool = True,
+    ) -> None:
+        super().__init__(name="time", kind="verbalize", deterministic=deterministic)
+
+        hour_noun, minute_noun, second_noun = nouns
+
+        def field(name: str, value: pynini.Fst, noun: str) -> pynini.Fst:
+            return (
+                pynutil.delete(f'{name}: "')
+                + value
+                + pynutil.delete('"')
+                + pynutil.insert(f" {noun}")
+            )
+
+        any_word = pynini.closure(NOT_QUOTE, 1)
+        hours = field("hours", any_word, hour_noun)
+        # A written day-part word travels as the meridiem; AM/PM resolve by the hour.
+        day_part = (
+            pynutil.delete('meridiem: "')
+            + pynini.difference(any_word, pynini.union("AM", "PM"))
+            + pynutil.delete('"')
+            + delete_space
+            + insert_space
+        )
+        head = pynini.union(
+            pynini.closure(day_part, 0, 1) + hours, meridiem_by_hour(lang, hour_noun)
+        )
+        minutes = field("minutes", count, minute_noun)
+        seconds = field("seconds", count, second_noun)
+        graph = (
+            head
+            + pynini.closure(delete_space + insert_space + minutes, 0, 1)
+            + pynini.closure(delete_space + insert_space + seconds, 0, 1)
+            + suffix_field
+        )
+        self.fst = self.delete_tokens(graph @ sandhi).optimize()
+
+
+class QuantityDecimalFst(GraphFst):
+    """
+    Decimal verbalizer with a language hook for a whole number before a scale word, e.g.
+        decimal { integer_part: "പന്ത്രണ്ട്" fractional_part: "അഞ്ച്" } -> പന്ത്രണ്ട് ദശാംശം അഞ്ച്
+        decimal { integer_part: "ഒന്ന്" quantity: "ലക്ഷം" } -> ഒരു ലക്ഷം
+        decimal { integer_part: "അഞ്ച്" quantity: "ആയിരം" } -> അഞ്ചായിരം
+
+    Attributes
+    ----------
+    minus_word : ``str``
+        Spoken form of a leading minus sign.
+    point_word : ``str``
+        Spoken decimal point.
+    whole_quantity : ``pynini.Fst``
+        Rewrite of "<whole number> <scale word>" (the counting one, a fused thousand);
+        identity if none.
+    """
+
+    def __init__(
+        self,
+        *,
+        minus_word: str,
+        point_word: str,
+        whole_quantity: pynini.Fst,
+        deterministic: bool = True,
+    ) -> None:
+        super().__init__(name="decimal", kind="verbalize", deterministic=deterministic)
+
+        delete_one_space = pynutil.delete(" ")
+        optional_sign = pynini.closure(
+            pynini.cross('negative: "true"', f" {minus_word} ") + delete_one_space, 0, 1
+        )
+        integer = (
+            pynutil.delete('integer_part: "') + pynini.closure(NOT_QUOTE, 1) + pynutil.delete('"')
+        )
+        fractional = (
+            pynutil.insert(f" {point_word} ")
+            + pynutil.delete('fractional_part: "')
+            + pynini.closure(NOT_QUOTE, 1)
+            + pynutil.delete('"')
+        )
+        quantity = (
+            delete_one_space
+            + insert_space
+            + pynutil.delete('quantity: "')
+            + pynini.closure(NOT_QUOTE, 1)
+            + pynutil.delete('"')
+        )
+        graph = optional_sign + (
+            (integer + quantity) @ whole_quantity
+            | integer + delete_one_space + fractional + pynini.closure(quantity, 0, 1)
+        )
+        self.fst = self.delete_tokens(graph).optimize()

@@ -142,7 +142,12 @@ class ItnCardinalFst(GraphFst):
         self.pre_map = pre_map
         plain = self.read(inverted)
         # A decimal amount times a small scale word is one number: ఐదు దశాంశం ఐదు వేలు -> 5500.
-        self.words_to_digits = sequential(pynini.union(plain, _scale_expanded(profile, plain)))
+        # The two readings are made sequential separately: determinizing their union
+        # re-times every delayed output and blew up to millions of states for Malayalam.
+        scaled = _scale_expanded(profile, plain)
+        if scaled.num_states() > 0:
+            scaled = sequential(scaled)
+        self.words_to_digits = pynini.union(plain, scaled).optimize()
 
         nouns_path = data_path(profile.lang, "numbers/count_nouns.tsv")
         nouns = {row[0] for row in load_labels(nouns_path)} if Path(nouns_path).exists() else set()

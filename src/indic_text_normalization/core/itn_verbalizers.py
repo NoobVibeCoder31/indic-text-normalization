@@ -44,6 +44,20 @@ def _optional_sign(*, positive: bool) -> pynini.Fst:
     return pynini.closure(sign + delete_space, 0, 1)
 
 
+def _glued_suffix(forms: dict[str, str]) -> pynini.Fst:
+    """
+    Consume an optional ``suffix: "<written>"``, emitting the form glued to a noun.
+    """
+    return pynini.closure(
+        delete_space
+        + pynutil.delete('suffix: "')
+        + pynini.string_map(list(forms.items()))
+        + pynutil.delete('"'),
+        0,
+        1,
+    )
+
+
 def _two_digits() -> pynini.Fst:
     """
     Pad a one- or two-digit value to two digits.
@@ -151,6 +165,7 @@ class DateFst(GraphFst):
     Finite state transducer for verbalizing dates, e.g.
         date { day: "15" month: "ஜூன்" year: "2024" } -> 15 ஜூன் 2024
         date { year: "2024" month: "జూన్" day: "15" } -> 2024 జూన్ 15
+        date { month: "ജനുവരി" day: "1" } -> ജനുവരി 1
     """
 
     def __init__(self, deterministic: bool = True) -> None:
@@ -162,7 +177,7 @@ class DateFst(GraphFst):
             day + sep + month + pynini.closure(sep + year, 0, 1)
             | month + sep + year
             | year + sep + month + sep + day
-            | month + sep + day + sep + year
+            | month + sep + day + pynini.closure(sep + year, 0, 1)
         )
         self.graph = graph + delete_preserve_order
         self.fst = self.delete_tokens(self.graph).optimize()
@@ -199,12 +214,20 @@ class TimeFst(GraphFst):
         Hour and minute nouns to restore after an hour above 23, which is a duration and
         not a clock time (ఇరవై ఐదు గంటలకు -> 25 గంటలకు). None rejects such a token, for a
         tagger that range-binds the hour itself.
+    duration_suffixes : ``dict[str, tuple[str, str]] | None``, optional (default = None)
+        For a language whose suffix changes shape on a noun: the written suffix and the
+        form it takes glued to the hour noun and to the minute noun (Malayalam ന് ->
+        ക്ക് on മണി, ിന് on മിനിറ്റ്). None glues the written suffix as it is.
     deterministic : ``bool``, optional (default = True)
         If True, provide a single transduction option.
     """
 
     def __init__(
-        self, *, duration_nouns: tuple[str, str] | None = None, deterministic: bool = True
+        self,
+        *,
+        duration_nouns: tuple[str, str] | None = None,
+        duration_suffixes: dict[str, tuple[str, str]] | None = None,
+        deterministic: bool = True,
     ) -> None:
         super().__init__(name="time", kind="verbalize", deterministic=deterministic)
 
@@ -220,7 +243,7 @@ class TimeFst(GraphFst):
         graph_hm = hours + delete_space + pynutil.insert(":") + minutes
         graph_hms = graph_hm + delete_space + pynutil.insert(":") + seconds
         graph_hs = hours + pynutil.insert(":00:") + delete_space + seconds
-        graph = graph_hms | graph_hm | graph_hs | graph_h
+        graph = (graph_hms | graph_hm | graph_hs | graph_h) + _optional_field("suffix")
 
         if duration_nouns is not None:
             hour_noun, minute_noun = duration_nouns
@@ -237,9 +260,15 @@ class TimeFst(GraphFst):
                 + pynutil.delete('"')
                 + pynutil.insert(f" {minute_noun}")
             )
-            graph |= bad_hours + pynini.closure(delete_space + insert_space + bad_minutes, 0, 1)
+            hour_suffix = minute_suffix = _optional_field("suffix")
+            if duration_suffixes:
+                hour_suffix = _glued_suffix({k: v[0] for k, v in duration_suffixes.items()})
+                minute_suffix = _glued_suffix({k: v[1] for k, v in duration_suffixes.items()})
+            graph |= bad_hours + pynini.union(
+                hour_suffix, delete_space + insert_space + bad_minutes + minute_suffix
+            )
 
-        self.graph = day_part + graph + _optional_field("suffix") + delete_preserve_order
+        self.graph = day_part + graph + delete_preserve_order
         self.fst = self.delete_tokens(self.graph).optimize()
 
 

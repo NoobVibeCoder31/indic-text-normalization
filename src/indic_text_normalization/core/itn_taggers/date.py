@@ -43,7 +43,7 @@ class ItnDateFst(GraphFst):
         graph_dmy = day + sep + month + pynini.closure(sep + year, 0, 1)
         graph_my = month + sep + year
         graph_ymd = year + sep + month + sep + day
-        graph_mdy = month + sep + day + sep + year
+        graph_mdy = month + sep + day + pynini.closure(sep + year, 0, 1)
 
         graph = (graph_dmy | graph_my | graph_ymd | graph_mdy) + pynutil.insert(
             " preserve_order: true"

@@ -5,12 +5,7 @@ ITN tagger converting spoken fractions to digits, shared by every language.
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.core.graph_utils import (
-    GraphFst,
-    delete_space,
-    insert_space,
-    sequential,
-)
+from indic_text_normalization.core.graph_utils import GraphFst, delete_space, insert_space
 from indic_text_normalization.core.itn_taggers.cardinal import ItnCardinalFst
 
 
@@ -79,8 +74,10 @@ class ItnFractionFst(GraphFst):
 
         graph = pynini.Fst()
         if denominator_to_number is not None:
-            # Undo the denominator's oblique form, then read it as a number.
-            denominator_words = sequential(denominator_to_number @ cardinal.words_to_digits)
+            # Undo the denominator's oblique form, then read it as a number. The undoing is
+            # ambiguous until the number lexicon decides (പത്തിൽ vs ആയിരത്തിൽ), so it is not
+            # determinized: that re-times the number's delayed outputs and explodes.
+            denominator_words = (denominator_to_number @ cardinal.words_to_digits).optimize()
             denominator = pynutil.insert('denominator: "') + denominator_words + pynutil.insert('"')
             graph = denominator + delete_space + insert_space + numerator + optional_part_noun
             graph = pynini.closure(integer, 0, 1) + graph
@@ -98,6 +95,7 @@ class ItnFractionFst(GraphFst):
                 + pynutil.insert('denominator: "')
                 + cardinal.words_to_digits
                 + pynutil.insert('"')
+                + optional_part_noun
             )
             graph |= pynini.closure(integer, 0, 1) + by
         if mixed is not None:

@@ -2,6 +2,8 @@
 ITN tagger converting spoken money amounts to symbol-and-digit form, shared by every language.
 """
 
+from collections.abc import Callable, Iterable
+
 import pynini
 from pynini.lib import pynutil
 
@@ -9,6 +11,68 @@ from indic_text_normalization.core.graph_utils import DIGIT, GraphFst, delete_sp
 from indic_text_normalization.core.itn_taggers.cardinal import ItnCardinalFst, optional_sign_field
 from indic_text_normalization.core.scales import kept_scale_words
 from indic_text_normalization.core.utils import data_path, load_labels
+
+Inflect = Callable[[str, str], str]
+
+
+def inflection_maps(
+    lang: str, written_suffixes: Iterable[str], inflect: Inflect
+) -> tuple[pynini.Fst, dict[str, pynini.Fst], pynini.Fst]:
+    """
+    Build the three inflected-word maps ``ItnMoneyFst`` takes for a language whose case
+    suffix changes shape on the noun (Malayalam രൂപയ്ക്ക്, Kannada ರೂಪಾಯಿಗೆ).
+
+    Parameters
+    ----------
+    lang : ``str``
+        Language whose money tables are read.
+    written_suffixes : ``Iterable[str]``
+        The written suffixes ITN emits after a digit (ന്, ൽ; ಕ್ಕೆ, ರಲ್ಲಿ).
+    inflect : ``Callable[[str, str], str]``
+        The spoken form of a noun carrying a written suffix (രൂപ, ന് -> രൂപയ്ക്ക്).
+
+    Returns
+    -------
+    ``tuple[pynini.Fst, dict[str, pynini.Fst], pynini.Fst]``
+        ``inflected_currency``, ``inflected_minor`` by symbol, and ``scaled_currency``.
+    """
+    suffixes = list(dict.fromkeys(written_suffixes))
+    currency_rows = load_labels(data_path(lang, "money/currency_itn.tsv"), min_fields=2)
+    currency = pynini.string_map(
+        [
+            (inflect(word, written), f' currency: "{symbol}" suffix: "{written}"')
+            for word, symbol in currency_rows
+            for written in suffixes
+        ]
+    ).optimize()
+
+    symbol_of = dict(currency_rows)
+    forms = {
+        row[0]: row
+        for row in load_labels(data_path(lang, "money/currency_forms.tsv"), min_fields=1)
+    }
+    by_symbol: dict[str, list[tuple[str, str]]] = {}
+    for major, minor in load_labels(
+        data_path(lang, "money/major_minor_currencies.tsv"), min_fields=2
+    ):
+        if major not in symbol_of:
+            continue
+        for word in dict.fromkeys(forms.get(minor, [minor])):
+            for written in suffixes:
+                by_symbol.setdefault(symbol_of[major], []).append(
+                    (inflect(word, written), f' suffix: "{written}"')
+                )
+    minor_maps = {sym: pynini.string_map(pairs).optimize() for sym, pairs in by_symbol.items()}
+
+    scaled = pynini.string_map(
+        [
+            (f"{scale} {inflect(word, written)}", f'{inflect(scale, written)}" currency: "{symbol}')
+            for scale in kept_scale_words(lang)
+            for word, symbol in currency_rows
+            for written in suffixes
+        ]
+    ).optimize()
+    return currency, minor_maps, scaled
 
 
 def _minor_unit_rows(lang: str, major_to_symbol: dict[str, str]) -> list[list[str]]:
@@ -56,6 +120,19 @@ class ItnMoneyFst(GraphFst):
         the written idiom keeps (కోట్ల -> కోట్లు). Words not listed are kept as spoken.
     bare_scale_words : ``tuple[str, ...]``
         Scale words that alone count one (లక్ష రూపాయలు -> ₹1 లక్ష).
+    inflected_currency : ``pynini.Fst | None``, optional (default = None)
+        For a language whose case suffix changes shape on the currency word: the spoken
+        inflected word to the tagged fields it stands for (രൂപയ്ക്ക് ->
+        `` currency: "₹" suffix: "ന്"``). A plain glued suffix needs no such map.
+    inflected_minor : ``dict[str, pynini.Fst] | None``, optional (default = None)
+        Likewise for the minor-unit word, per currency symbol (പൈസയ്ക്ക് -> `` suffix: "ന്"``).
+    scaled_currency : ``pynini.Fst | None``, optional (default = None)
+        A kept scale word followed by an inflected currency word, to the scale word with
+        the suffix glued to it and the currency field (കോടി രൂപയ്ക്ക് ->
+        ``കോടിക്ക്" currency: "₹``), for ₹5 കോടിക്ക്.
+    range_lower : ``pynini.Fst | None``, optional (default = None)
+        For a language whose range word is glued to the lower bound (Kannada ಐದರಿಂದ ಹತ್ತು):
+        the spoken lower bound with its range ending, to its digits.
     deterministic : ``bool``, optional (default = True)
         If True, provide a single transduction option.
     """
@@ -66,6 +143,10 @@ class ItnMoneyFst(GraphFst):
         *,
         quantity_nominative: dict[str, str],
         bare_scale_words: tuple[str, ...],
+        inflected_currency: pynini.Fst | None = None,
+        inflected_minor: dict[str, pynini.Fst] | None = None,
+        scaled_currency: pynini.Fst | None = None,
+        range_lower: pynini.Fst | None = None,
         deterministic: bool = True,
     ) -> None:
         super().__init__(name="money", kind="classify", deterministic=deterministic)
@@ -110,6 +191,8 @@ class ItnMoneyFst(GraphFst):
         )
         if profile.range_suffix:
             range_words += pynutil.delete(" " + profile.range_suffix)
+        if range_lower is not None:
+            range_words |= range_lower + pynini.cross(" ", "-") + cardinal.words_to_digits
         integer_part = (
             pynutil.insert('integer_part: "')
             + (amount_words | pynutil.add_weight(range_words, -0.5))
@@ -124,9 +207,14 @@ class ItnMoneyFst(GraphFst):
         )
 
         graph = integer_part + delete_space + currency_field
+        if inflected_currency is not None:
+            graph |= integer_part + delete_space + inflected_currency
         for symbol, minor_words in minors_by_symbol.items():
             if symbol not in majors_by_symbol:
                 continue
+            minor_tail = pynutil.delete(pynini.union(*minor_words)) + optional_suffix
+            if inflected_minor and symbol in inflected_minor:
+                minor_tail |= inflected_minor[symbol]
             graph |= (
                 integer_part
                 + delete_space
@@ -135,8 +223,7 @@ class ItnMoneyFst(GraphFst):
                 + delete_space
                 + fractional_part
                 + delete_space
-                + pynutil.delete(pynini.union(*minor_words))
-                + optional_suffix
+                + minor_tail
             )
 
         # Currency word first: రూపాయలు యాభై -> ₹50.
@@ -186,6 +273,14 @@ class ItnMoneyFst(GraphFst):
                 + pynutil.insert('"')
             )
         graph_quantity = quantity_amount + delete_space + currency_field
+        if scaled_currency is not None:
+            graph_quantity |= (
+                pynutil.insert('integer_part: "')
+                + amount_digits
+                + pynini.accep(" ")
+                + scaled_currency
+                + pynutil.insert('"')
+            )
         graph |= pynutil.add_weight(graph_quantity, -1.0)
 
         # Minor-unit-only amounts: యాభై పైసలు -> ₹0.50, యాభై సెంట్లు -> $0.50.

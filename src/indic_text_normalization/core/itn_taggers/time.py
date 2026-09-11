@@ -39,6 +39,8 @@ class ItnTimeWords:
     half_glued_suffixes : ``tuple[tuple[str, str], ...]``
         Suffixes glued to a fused half-hour word and the written suffix each becomes
         (పదిన്నరకు -> 10:30కు, പത്തരയ്ക്ക് -> 10:30ന്).
+    clock_hour_nouns : ``tuple[str, ...]``
+        Hour nouns that alone make a clock time, never a duration (Hindi बजे: दस बजे -> 10:00).
     """
 
     hour_nouns: tuple[str, ...]
@@ -50,6 +52,7 @@ class ItnTimeWords:
     hour_one: tuple[str, str] | None = None
     minute_one: str | None = None
     half_glued_suffixes: tuple[tuple[str, str], ...] = ()
+    clock_hour_nouns: tuple[str, ...] = ()
 
 
 class ItnTimeFst(GraphFst):
@@ -109,6 +112,10 @@ class ItnTimeFst(GraphFst):
         seconds = pynutil.insert(' seconds: "') + second_words + pynutil.insert('"')
 
         graph_h = hours + delete_space + suffixed(words.hour_suffixed)
+        clock_noun = pynini.Fst()
+        if words.clock_hour_nouns:
+            clock_noun = delete_space + pynutil.delete(pynini.union(*words.clock_hour_nouns))
+            graph_h |= hours + clock_noun
         if words.hour_one is not None:
             one, noun = words.hour_one
             graph_h |= (
@@ -157,11 +164,18 @@ class ItnTimeFst(GraphFst):
 
         graph = graph_hms | graph_hm | graph_hs | graph_h | pynutil.add_weight(graph_hm_bare, 0.1)
 
-        # Half-hour idiom: పదిన్నర గంటలకు -> 10:30. Bare "Xన్నర గంటలు" is a duration (2.5
-        # hours), so the clock reading needs a dative.
-        half_rows = [r for r in half_form_rows(lang) if r[2] == "5" and 0 < int(r[1]) <= 23]
+        # Half- and quarter-hour idioms: పదిన్నర గంటలకు -> 10:30, സവാ ദസ് ബജേ -> 10:15,
+        # പത്തേമുക്കാൽ മണിക്ക് -> 10:45. Bare "Xన్నర గంటలు" is a duration (2.5 hours), so the
+        # clock reading needs a dative or a clock noun.
+        minutes_of = {"5": "30", "25": "15", "75": "45"}
+        half_rows = [r for r in half_form_rows(lang) if r[2] in minutes_of and int(r[1]) <= 23]
         if half_rows:
-            half_words = pynini.string_map([(w, ip) for w, ip, _ in half_rows])
+            half_words = pynini.union(
+                *[
+                    pynini.cross(w, f'hours: "{ip}" minutes: "{minutes_of[fp]}"')
+                    for w, ip, fp in half_rows
+                ]
+            )
             tails = delete_space + suffixed(words.hour_suffixed)
             if words.half_glued_suffixes:
                 tails |= (
@@ -169,9 +183,9 @@ class ItnTimeFst(GraphFst):
                     + pynini.string_map(list(words.half_glued_suffixes))
                     + pynutil.insert('"')
                 )
-            graph |= (
-                pynutil.insert('hours: "') + half_words + pynutil.insert('" minutes: "30"') + tails
-            )
+            if words.clock_hour_nouns:
+                tails |= clock_noun
+            graph |= half_words + tails
 
         graph += pynutil.insert(" preserve_order: true")
         self.fst = self.add_tokens(graph).optimize()

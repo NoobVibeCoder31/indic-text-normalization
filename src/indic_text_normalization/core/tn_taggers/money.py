@@ -33,6 +33,10 @@ class MoneyFst(GraphFst):
     amount_before_scale : ``pynini.Fst | None``, optional (default = None)
         Rewrite applied to a spoken amount that stands before a scale word (the Telugu
         oblique: ఐదు వందలు కోట్లు -> ఐదు వందల కోట్లు). None leaves the amount as spoken.
+    inflected_quantity : ``pynini.Fst | None``, optional (default = None)
+        A written scale word carrying a case ending that is not a plain glued suffix
+        (Malayalam കോടിക്ക്), mapped to ``<scale word>" suffix: "<written suffix>`` so the
+        verbalizer attaches the suffix to the currency word (അഞ്ച് കോടി രൂപയ്ക്ക്).
     deterministic : ``bool``, optional (default = True)
         If True, provide a single transduction option.
     """
@@ -42,6 +46,7 @@ class MoneyFst(GraphFst):
         cardinal: CardinalBase,
         *,
         amount_before_scale: pynini.Fst | None = None,
+        inflected_quantity: pynini.Fst | None = None,
         deterministic: bool = True,
     ) -> None:
         super().__init__(name="money", kind="classify", deterministic=deterministic)
@@ -298,5 +303,18 @@ class MoneyFst(GraphFst):
             )
             graph_currencies |= pynutil.add_weight(graph_major_kku, -0.1)
             graph_currencies |= pynutil.add_weight(graph_minor_kku, -0.2)
+        if inflected_quantity is not None:
+            graph_inflected = (
+                optional_graph_negative
+                + currency_major
+                + optional_space
+                + insert_space
+                + pynutil.insert('integer_part: "')
+                + amount_scaled
+                + pynini.accep(" ")
+                + inflected_quantity
+                + pynutil.insert('"')
+            )
+            graph_currencies |= pynutil.add_weight(graph_inflected, -0.1)
 
         self.fst = self.add_tokens(graph_currencies.optimize())
