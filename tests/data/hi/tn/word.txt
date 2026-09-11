@@ -1,0 +1,12 @@
+# input~expected[~alt_expected...]
+नमस्ते~नमस्ते
+hello world~hello world
+वह घर गया।~वह घर गया ।
+नमस्ते, आप कैसे हैं?~नमस्ते , आप कैसे हैं ?
+हिंदी english मिलाकर~हिंदी english मिलाकर
+# URLs pass through as one token
+www.google.com~www.google.com
+https://example.com/path~https://example.com/path
+# number words already spoken stay unchanged
+पाँच लोग आए~पाँच लोग आए
+एक दिन~एक दिन

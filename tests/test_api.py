@@ -40,7 +40,7 @@ class TestNormalizer:
         assert ta_itn.inverse_normalize("") == ""
         assert ta_itn.inverse_normalize(" \t ") == ""
 
-    @pytest.mark.parametrize("lang", ["ta", "te", "ml", "kn"])
+    @pytest.mark.parametrize("lang", ["ta", "te", "ml", "kn", "hi"])
     def test_registry_lists_language(self, lang: str) -> None:
         """
         Every shipped language is registered for both directions.
@@ -56,7 +56,7 @@ class TestNormalizer:
         assert te_tn.normalize(" \t ") == ""
         assert te_itn.inverse_normalize("   ") == ""
 
-    @pytest.mark.parametrize("lang", ["ta", "te", "ml", "kn"])
+    @pytest.mark.parametrize("lang", ["ta", "te", "ml", "kn", "hi"])
     def test_far_cache_round_trip(
         self,
         tmp_path: Path,

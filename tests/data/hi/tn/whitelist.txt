@@ -1,0 +1,24 @@
+# input~expected[~alt_expected...]
+डॉ. शर्मा~डॉक्टर शर्मा
+प्रो. वर्मा~प्रोफ़ेसर वर्मा
+5×3=15 होता है.~पाँच गुणा तीन बराबर पंद्रह होता है .
+5%~पाँच प्रतिशत
+10÷2~दस भाग दो
+5 & 6~पाँच और छह
+# percent-bracket split, square brackets, doubled symbols
+(1.5%)~( एक दशमलव पाँच प्रतिशत )
+[5]~[ पाँच ]
+5%%~पाँच प्रतिशत प्रतिशत
+# multi-word symbol expansions are spoken with plain spaces (no U+00A0)
+→~दायाँ तीर
+5 → 10~पाँच दायाँ तीर दस
+™~ट्रेड मार्क
+±~प्लस माइनस
+# @ and _ are spoken next to Devanagari letters or marks, kept inside identifiers
+@रवि~एट रवि
+(@)~( एट )
+रवि_कुमार~रवि अंडरस्कोर कुमार
+user@example.com~user@example.com
+a_b~a_b
+5_6~पाँच अंडरस्कोर छह
+5@~पाँच एट

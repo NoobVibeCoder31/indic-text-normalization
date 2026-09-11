@@ -1,0 +1,39 @@
+# input~expected[~alt_expected...]
+3/4~तीन बटा चार
+1/2~एक बटा दो
+1/4~एक बटा चार
+7/8~सात बटा आठ
+2/3~दो बटा तीन
+3 / 5~तीन बटा पाँच
+३/४~तीन बटा चार
+# vulgar signs read as their everyday words and take the idiomatic forms with an integer
+½~आधा
+¼~चौथाई
+¾~पौन
+½ किलो~आधा किलो
+1½~डेढ़
+2½~ढाई
+3½~साढ़े तीन
+12½~साढ़े बारह
+3½ घंटे~साढ़े तीन घंटे
+20½~साढ़े बीस
+1¼~सवा एक
+2¼~सवा दो
+10¼~सवा दस
+1¾~पौने दो
+2¾~पौने तीन
+10¾~पौने ग्यारह
+-½~माइनस आधा
+2 3/4~दो पूर्णांक तीन बटा चार
+# every denominator is a plain number after बटा
+3/45~तीन बटा पैंतालीस
+1/100~एक बटा एक सौ
+1/1000~एक बटा एक हज़ार
+# negative fraction keeps its sign
+-1/2~माइनस एक बटा दो
+# regression: zero or zero-led denominators and zero-led numerators are not fractions
+1/0~एक / शून्य
+15/06~पंद्रह / शून्य छह
+06/24~शून्य छह / चौबीस
+# a written भाग after the fraction is absorbed
+3/4 भाग~तीन बटा चार

@@ -120,6 +120,30 @@ def _kn_itn_verbalize() -> GraphFst:
     return SentenceVerbalizeFst(VerbalizeFst(), itn_verbalizers.WordFst())
 
 
+def _hi_tn_classify() -> SentenceClassifyFst:
+    from indic_text_normalization.hi.tn.taggers.tokenize_and_classify import ClassifyFst
+
+    return ClassifyFst()
+
+
+def _hi_tn_verbalize() -> GraphFst:
+    from indic_text_normalization.hi.tn.verbalizers.verbalize import VerbalizeFst
+
+    return SentenceVerbalizeFst(VerbalizeFst(), tn_verbalizers.WordFst())
+
+
+def _hi_itn_classify() -> SentenceClassifyFst:
+    from indic_text_normalization.hi.itn.taggers.tokenize_and_classify import ClassifyFst
+
+    return ClassifyFst()
+
+
+def _hi_itn_verbalize() -> GraphFst:
+    from indic_text_normalization.hi.itn.verbalizers.verbalize import VerbalizeFst
+
+    return SentenceVerbalizeFst(VerbalizeFst(), itn_verbalizers.WordFst())
+
+
 REGISTRY: dict[tuple[str, Direction], GrammarFactory] = {
     ("ta", TN): GrammarFactory(_ta_tn_classify, _ta_tn_verbalize),
     ("ta", ITN): GrammarFactory(_ta_itn_classify, _ta_itn_verbalize),
@@ -129,6 +153,8 @@ REGISTRY: dict[tuple[str, Direction], GrammarFactory] = {
     ("ml", ITN): GrammarFactory(_ml_itn_classify, _ml_itn_verbalize),
     ("kn", TN): GrammarFactory(_kn_tn_classify, _kn_tn_verbalize),
     ("kn", ITN): GrammarFactory(_kn_itn_classify, _kn_itn_verbalize),
+    ("hi", TN): GrammarFactory(_hi_tn_classify, _hi_tn_verbalize),
+    ("hi", ITN): GrammarFactory(_hi_itn_classify, _hi_itn_verbalize),
 }
 
 

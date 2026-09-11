@@ -19,7 +19,7 @@ def _golden_inputs(lang: str, direction: str) -> list[str]:
     return inputs
 
 
-@pytest.mark.parametrize("lang", ["ta", "te", "ml", "kn"])
+@pytest.mark.parametrize("lang", ["ta", "te", "ml", "kn", "hi"])
 class TestPrePass:
     """
     The TN spacing pre-pass is a function of the text, composed at call time.

@@ -1,0 +1,30 @@
+# input~expected[~alt_expected...]
+बारह दशमलव पाँच~12.5
+शून्य दशमलव पाँच~0.5
+तीन दशमलव एक चार~3.14
+माइनस दो दशमलव पाँच~-2.5
+बारह पॉइंट पाँच~12.5
+एक सौ दशमलव दो पाँच~100.25
+# the idiomatic fractions (bare आधा/चौथाई stay nouns, see word.txt)
+डेढ़~1.5
+ढाई किलो~2.5 किलो
+साढ़े दस~10.5
+सवा दो~2.25
+पौने तीन~2.75
+पौने ग्यारह~10.75
+# dotted chains round-trip
+एक दशमलव दो दशमलव तीन~1.2.3
+# a scale word after a decimal is kept as a word, never expanded into zeros
+पाँच दशमलव पाँच लाख~5.5 लाख
+एक दशमलव पाँच करोड़~1.5 करोड़
+दो दशमलव पाँच लाख लोग~2.5 लाख लोग
+एक दशमलव पाँच अरब~1.5 अरब
+# three-digit fractional words
+तीन दशमलव एक सौ इकतालीस~3.141
+# the sign field reaches the decimal path as well
+प्लस पाँच दशमलव पाँच~+5.5
+प्लस शून्य दशमलव शून्य~+0.0
+# a scale word too large to expand stays a word beside a fused half form
+डेढ़ लाख~1.5 लाख
+# the vulgar-sign readings TN emits for large integers
+एक सौ पूर्णांक आधा~100.5

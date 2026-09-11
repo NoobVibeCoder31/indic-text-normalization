@@ -1,0 +1,26 @@
+# input~expected[~alt_expected...]
+नमस्ते दोस्तों~नमस्ते दोस्तों
+hello world~hello world
+# written numbers pass through ITN untouched
+-5 डिग्री~-5 डिग्री
+10:30 होंगे~10:30 होंगे
+-₹500~-₹500
+2024 में~2024 में
+5वीं कक्षा~5वीं कक्षा
+3/4~3/4
+# prose negative controls: no conversion of the article एक, आधा, चौथाई, or number-like words
+एक राजा था~एक राजा था
+एक ही बात~एक ही बात
+आधा घंटा रुको~आधा घंटा रुको
+चौथाई घंटा~चौथाई घंटा
+सातवाँ~7वाँ
+# written percentages and ranges pass through ITN untouched
+12.5%~12.5%
+10-20~10-20
+# brackets and quotes do not block the number inside them
+[पाँच]~[ 5 ]
+"पाँच"~" 5 "
+# "=" is a TN rewrite; ITN must leave it alone
+5 = 5~5 = 5
+5=5~5 = 5
+a = b~a = b
