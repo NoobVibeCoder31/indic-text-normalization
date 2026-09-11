@@ -9,7 +9,10 @@ Project rules for Claude Code and contributors. This is a **Python library for n
 - Use `pyproject.toml` (PEP 621) for packaging — no `setup.py`.
 - Format with **black** (line length 100, matching zspeech); lint with **ruff check** (never `ruff format`); type-check with **mypy --strict**. All public functions must have type hints.
 - Dependencies: keep the core library dependency-light. Prefer the stdlib `unicodedata` first; add `PyICU` or `indic-nlp-library` only behind an optional extra (installed via `uv sync --extra icu`), never as a hard dependency.
-- Run tests with `pytest`. A change is not done until `uv run black --check .`, `uv run ruff check`, `uv run mypy`, and `uv run pytest` all pass.
+- Run tests with `pytest`. **Scale the checks to the change.**
+  - **Changes that touch no source or test code** — README and other docs, `.gitignore`, licence and metadata files, comments, CI or editor config — ship without running the test suite. Do not wait on tests to report such a change done.
+  - **Changes to `src/` or `tests/`** run the checks in the same change, narrowest first: `uv run pytest` scoped to the affected tests (see the testing rules for which), plus `uv run black --check .`, `uv run ruff check` and `uv run mypy`. A code change is not done until those pass.
+  - **Run the full suite only when the scoped run is not enough to cover the blast radius** — a change under `core/`, a shared tagger or profile, a public API or packaging change, or before opening a PR. Do not run the full end-to-end suite as the first step.
 
 ## Docstrings & comments
 
@@ -65,7 +68,7 @@ Project rules for Claude Code and contributors. This is a **Python library for n
 - Every normalization rule requires **golden-file tests**: input → expected output pairs stored in UTF-8 test data files under `tests/data/<script>/`, one case per line with a description.
 - Test data files must be reviewed with `hexdump`/code-point dumps in mind — invisible characters (ZWJ/ZWNJ, combining marks) are the whole point of this project. Never let an editor or formatter "clean up" test data files; exclude `tests/data/` from black and any pre-commit whitespace hooks.
 - **Every fix ships with a unit test case, no exceptions.** Any change that alters grammar behavior (a bug fix, a weight change, a data-table edit) adds a golden regression case to `tests/data/<lang>/{tn,itn}/<class>.txt` in the same change — including cases that document intentional rejections (e.g. an invalid date falling back to a number reading). A fix without a test case is not done.
-- **After changing a semiotic class, run that class's unit tests before anything else**: `uv run pytest tests/<lang>/test_<class>.py` (e.g. `uv run pytest tests/ta/test_date.py` after touching `ta/*/taggers/date.py`, its verbalizers, or its data files). A change to `cardinal` also requires the classes that consume it (decimal, fraction, ordinal, date, time, money) plus `test_idempotency.py`. Run the full suite before finishing the task.
+- **After changing a semiotic class, run that class's unit tests before anything else**: `uv run pytest tests/<lang>/test_<class>.py` (e.g. `uv run pytest tests/ta/test_date.py` after touching `ta/*/taggers/date.py`, its verbalizers, or its data files). A change to `cardinal` also requires the classes that consume it (decimal, fraction, ordinal, date, time, money) plus `test_idempotency.py`. Start with that scoped run, never the full suite; escalate to the full suite only when the change reaches beyond those tests (see the tooling rules above).
 - Test **idempotency** for every transform: `normalize(normalize(x)) == normalize(x)` must hold, property-tested with `hypothesis` over the relevant Unicode ranges.
 - Test round-trip safety where a transform claims reversibility.
 - Include at least one mixed-script and one empty/whitespace-only case per transform.
