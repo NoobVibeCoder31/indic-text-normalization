@@ -1,0 +1,5 @@
+# ITN keeps abbreviation words unchanged
+ഡോക്ടർ~ഡോക്ടർ
+അഞ്ച് ശതമാനം~5 ശതമാനം
+# a spoken sign word before a number is the sign
+അഞ്ച് പ്ലസ് മൂന്ന് സമം എട്ട്~5 +3 സമം 8

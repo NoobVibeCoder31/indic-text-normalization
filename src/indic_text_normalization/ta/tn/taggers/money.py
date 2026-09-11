@@ -55,6 +55,13 @@ class MoneyFst(GraphFst):
         # the tokenizer's money weight; class arbitration is decided on that scale.
         integer = (
             pynutil.insert('integer_part: "')
+            + pynutil.add_weight(cardinal_graph, -0.1)
+            + pynutil.insert('"')
+        )
+        # A range is two more copies of the cardinal, so only the branch that reads the
+        # symbol first carries it; no other branch takes a range amount.
+        integer_or_range = (
+            pynutil.insert('integer_part: "')
             + (pynutil.add_weight(cardinal_graph, -0.1) | pynutil.add_weight(range_amount, -0.05))
             + pynutil.insert('"')
         )
@@ -98,7 +105,11 @@ class MoneyFst(GraphFst):
             + optional_slash_dash
         )
         graph_currency_first = (
-            optional_graph_negative + currency_major + optional_space + insert_space + integer
+            optional_graph_negative
+            + currency_major
+            + optional_space
+            + insert_space
+            + integer_or_range
         ) + (
             optional_slash_dash
             | minor_tail

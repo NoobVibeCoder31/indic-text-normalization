@@ -15,25 +15,22 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.te.morphology import count_nouns, MANY, OBLIQUE_FINAL, ONE_AS_OKA
+from indic_text_normalization.core.graph_utils import DIGIT, SIGMA, insert_space, unweighted
+from indic_text_normalization.core.tn_taggers import cardinal_base
+from indic_text_normalization.core.tn_taggers.cardinal_base import CardinalBase
 from indic_text_normalization.core.utils import data_path, load_labels
-from indic_text_normalization.core.graph_utils import (
-    DIGIT,
-    GraphFst,
-    insert_space,
-    SIGMA,
-    unweighted,
-)
 from indic_text_normalization.te.constants import (
     ASCII_TO_TE_DIGIT,
     ASCII_TO_TE_NUMBER,
     CASE_SUFFIXES,
     LANG,
+    PROFILE,
     TE_CONSONANT,
     TE_DIGIT,
     TE_LETTER,
     TE_NON_ZERO,
 )
+from indic_text_normalization.te.morphology import MANY, OBLIQUE_FINAL, ONE_AS_OKA, count_nouns
 
 # U+0C66 TELUGU DIGIT ZERO and U+0C67 TELUGU DIGIT ONE anchor the scale graphs.
 TE_ZERO_CHAR = "౦"
@@ -43,21 +40,9 @@ TE_ONE_CHAR = "౧"
 VOWEL_SIGNS = frozenset(chr(i) for i in range(0x0C3E, 0x0C4D))
 
 any_digit = pynini.union(DIGIT, TE_DIGIT)
-delete_commas = (
-    any_digit + pynini.closure(pynini.closure(pynutil.delete(","), 0, 1) + any_digit)
-).optimize()
-
-# Indian comma format pattern (e.g. 12,34,567) and 3-digit international grouping.
-comma = pynini.accep(",")
-three_digits = any_digit + any_digit + any_digit
-indian_comma_pattern = (
-    pynini.closure(any_digit, 1, 2)
-    + pynini.closure(comma + any_digit + any_digit, 1)
-    + pynini.closure(comma + three_digits, 0, 1)
-).optimize()
-intl_comma_pattern = (
-    pynini.closure(any_digit, 1, 3) + pynini.closure(comma + three_digits, 1)
-).optimize()
+delete_commas = cardinal_base.delete_commas(any_digit)
+indian_comma_pattern = cardinal_base.indian_comma_pattern(any_digit)
+intl_comma_pattern = cardinal_base.intl_comma_pattern(any_digit)
 
 # Inflected tails an ordinal may carry after -వ (5వది, 5వదానికి); -వో is the colloquial -ో form.
 ORDINAL_TAILS = [
@@ -153,19 +138,16 @@ def ordinal_graph(graph: pynini.Fst) -> pynini.Fst:
     return pynini.union(graph_va, graph_o).optimize()
 
 
-class CardinalFst(GraphFst):
+class CardinalFst(CardinalBase):
     """
     Finite state transducer for classifying Telugu cardinals, e.g.
         -౨౩ -> cardinal { negative: "true"  integer: "ఇరవై మూడు" }
         2024 -> cardinal { integer: "రెండు వేల ఇరవై నాలుగు" }
-
-    Args:
-        deterministic: if True will provide a single transduction option,
-            for False multiple transduction are generated (used for audio-based normalization)
+        1 రోజు -> cardinal { integer: "ఒక రోజు" }
     """
 
-    def __init__(self, deterministic: bool = True):
-        super().__init__(name="cardinal", kind="classify", deterministic=deterministic)
+    def __init__(self, deterministic: bool = True) -> None:
+        super().__init__(PROFILE, deterministic=deterministic)
 
         digit = pynini.string_file(data_path(LANG, "numbers/digit.tsv")).optimize()
         zero = pynini.string_file(data_path(LANG, "numbers/zero.tsv")).optimize()
@@ -408,3 +390,16 @@ class CardinalFst(GraphFst):
         )
         final_graph = self.add_tokens(final_graph)
         self.fst = final_graph.optimize()
+
+        self.ordinal_tails = tuple(ORDINAL_TAILS)
+        ordinal_tail = pynini.union(
+            pynini.accep("వ") + pynini.union(*[pynini.accep(t) for t in ORDINAL_TAILS]),
+            pynini.accep("వో"),
+        )
+        self.known_suffixes = pynini.union(pynini.union(*CASE_SUFFIXES), ordinal_tail).optimize()
+
+    def attach_case_suffix(self, graph: pynini.Fst, include_vowel: bool = True) -> pynini.Fst:
+        return attach_case_suffix(graph, include_vowel)
+
+    def ordinal_graph(self, graph: pynini.Fst) -> pynini.Fst:
+        return ordinal_graph(graph)

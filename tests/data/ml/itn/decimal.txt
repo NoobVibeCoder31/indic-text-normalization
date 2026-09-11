@@ -1,0 +1,27 @@
+# input~expected[~alt_expected...]
+പന്ത്രണ്ട് ദശാംശം അഞ്ച്~12.5
+പൂജ്യം ദശാംശം അഞ്ച്~0.5
+മൂന്ന് ദശാംശം ഒന്ന് നാല്~3.14
+മൈനസ് രണ്ട് ദശാംശം അഞ്ച്~-2.5
+പന്ത്രണ്ട് പോയിന്റ് അഞ്ച്~12.5
+നൂറ് ദശാംശം രണ്ട് അഞ്ച്~100.25
+# fused half and quarter words (bare അര/കാൽ stay nouns, see word.txt)
+ഒന്നര~1.5
+രണ്ടര കിലോ~2.5 കിലോ
+പത്തര~10.5
+രണ്ടേകാൽ~2.25
+രണ്ടേമുക്കാൽ~2.75
+പത്തേമുക്കാൽ~10.75
+# dotted chains round-trip
+ഒന്ന് ദശാംശം രണ്ട് ദശാംശം മൂന്ന്~1.2.3
+# a scale word after a decimal is kept as a word, never expanded into zeros
+അഞ്ച് ദശാംശം അഞ്ച് ലക്ഷം~5.5 ലക്ഷം
+ഒന്ന് ദശാംശം അഞ്ച് കോടി~1.5 കോടി
+രണ്ട് ദശാംശം അഞ്ച് ലക്ഷം പേർ~2.5 ലക്ഷം പേർ
+# three-digit fractional words
+മൂന്ന് ദശാംശം നൂറ്റിനാൽപത്തിയൊന്ന്~3.141
+# the sign field reaches the decimal path as well
+പ്ലസ് അഞ്ച് ദശാംശം അഞ്ച്~+5.5
+പ്ലസ് പൂജ്യം ദശാംശം പൂജ്യം~+0.0
+# a scale word too large to expand stays a word beside a fused half form
+ഒന്നര ലക്ഷം~1.5 ലക്ഷം

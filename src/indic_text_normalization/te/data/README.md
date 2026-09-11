@@ -13,6 +13,8 @@ notes column, so provenance is recorded here per table. Digits in keys are Telug
 | `numbers/hundreds_exact.tsv` | ౨౦౦-౯౦౦ → రెండు వందలు … తొమ్మిది వందలు | Written here: plural exact hundreds |
 | `numbers/hundreds_oblique.tsv` | ౨-౯ → రెండు వందల … | Written here: oblique stems before a remainder (205 → రెండు వందల ఐదు) |
 | `numbers/scale_words.tsv` | scale word → trailing zeros → expand\|keep | Written here. `expand` multiplies the amount out (ఐదు దశాంశం ఐదు వేలు → 5500); `keep` leaves the written idiom (5.5 లక్షలు) |
+| `numbers/quantity_words.tsv` | written scale word → spoken word → kind (`native`, `english`, `short`) | Written here. Native words and English `lakh/crore/million` follow the number after a space; the shorthands `L/cr/K/M/B` may be glued (₹15L). Read by the shared decimal and money taggers |
+| `telephone/cues.tsv` | words after which a 4-6 digit run reads digit by digit (పిన్ కోడ్, OTP) | Written here; read by the shared telephone tagger |
 | `numbers/itn_prose_phrases.tsv` | phrases where a numeral word is a pronoun or an approximation idiom | Written here; col 2 is the reason. Protected verbatim by the ITN prose tagger |
 | `numbers/count_nouns.tsv` | nouns counted with a numeral (మంది, రోజు, ఓట్లు …), col 2 a gloss | Written here. TN reads `1 రోజు → ఒక రోజు` and `78,000 మంది → డెబ్బై ఎనిమిది వేల మంది` before these words (plus the unit words); ITN does not invert `ఒక` before them, since it is also the article |
 | `numbers/itn_half_forms.tsv` | fused fractional words → integer/fraction digits (ఒకటిన్నర → 1.5, పదిన్నర → 10.5); bare అర/పావు are left as nouns | Written here; 3 columns; ITN input only |

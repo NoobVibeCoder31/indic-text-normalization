@@ -77,3 +77,19 @@ def te_itn() -> InverseNormalizer:
     Session-wide Telugu ITN normalizer (grammar compiled once).
     """
     return InverseNormalizer(lang="te", cache_dir=CACHE_DIR)
+
+
+@pytest.fixture(scope="session")
+def ml_tn() -> Normalizer:
+    """
+    Session-wide Malayalam TN normalizer (grammar compiled once).
+    """
+    return Normalizer(lang="ml", cache_dir=CACHE_DIR)
+
+
+@pytest.fixture(scope="session")
+def ml_itn() -> InverseNormalizer:
+    """
+    Session-wide Malayalam ITN normalizer (grammar compiled once).
+    """
+    return InverseNormalizer(lang="ml", cache_dir=CACHE_DIR)

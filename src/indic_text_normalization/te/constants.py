@@ -14,30 +14,14 @@
 # limitations under the License.
 
 """
-Telugu-specific constants: digits, script ranges, sign and point words, case suffixes.
+Telugu-specific constants: the language profile, script ranges, sign and point words.
 """
 
 import pynini
 
-from indic_text_normalization.core.scripts import script_digit_fsts
+from indic_text_normalization.core.profile import make_profile
 
 LANG = "te"
-
-_TE_DIGITS = script_digit_fsts("౦")
-
-TE_DIGIT = _TE_DIGITS.digit
-TE_NON_ZERO = _TE_DIGITS.non_zero
-TE_ZERO = _TE_DIGITS.zero
-TE_TO_ASCII_DIGIT = _TE_DIGITS.to_ascii
-ASCII_TO_TE_DIGIT = _TE_DIGITS.from_ascii
-ASCII_TO_TE_NUMBER = pynini.closure(ASCII_TO_TE_DIGIT).optimize()
-
-# Telugu block U+0C00-U+0C7F, used for context-dependent rewrites.
-TE_BLOCK = pynini.union(*[chr(i) for i in range(0x0C00, 0x0C80)]).optimize()
-# Letters only (block minus digits), i.e. what may be glued to a number as a suffix.
-TE_LETTER = pynini.difference(TE_BLOCK, TE_DIGIT).optimize()
-# Consonant letters U+0C15 TELUGU LETTER KA .. U+0C39 TELUGU LETTER HA (inherent -a).
-TE_CONSONANT = pynini.union(*[chr(i) for i in range(0x0C15, 0x0C3A)]).optimize()
 
 # Formal register: a negative sign reads as ఋణ (U+0C0B TELUGU LETTER VOCALIC R);
 # the subtraction operator inside an equation reads as మైనస్.
@@ -106,3 +90,43 @@ CASE_SUFFIXES = [
     "ే",
     "ూ",
 ]
+
+# Telugu block U+0C00-U+0C7F; U+0C66 TELUGU DIGIT ZERO opens the digit run.
+PROFILE = make_profile(
+    LANG,
+    zero="౦",
+    block=(0x0C00, 0x0C80),
+    minus_word=MINUS_WORD,
+    operator_minus_word=OPERATOR_MINUS_WORD,
+    plus_word=PLUS_WORD,
+    range_word=RANGE_WORD,
+    range_words=("నుంచి",),
+    point_word=POINT_WORD,
+    point_words=tuple(POINT_WORDS),
+    negative_words=("మైనస్", "రుణ", "ఋణాత్మక", "రుణాత్మక"),
+    case_suffixes=tuple(CASE_SUFFIXES),
+    counting_one="ఒక",
+)
+
+TE_DIGIT = PROFILE.digits.digit
+TE_NON_ZERO = PROFILE.digits.non_zero
+TE_ZERO = PROFILE.digits.zero
+TE_TO_ASCII_DIGIT = PROFILE.digits.to_ascii
+ASCII_TO_TE_DIGIT = PROFILE.digits.from_ascii
+ASCII_TO_TE_NUMBER = PROFILE.to_native
+TE_BLOCK = PROFILE.block
+# Letters only (block minus digits), i.e. what may be glued to a number as a suffix.
+TE_LETTER = PROFILE.letter
+# Consonant letters U+0C15 TELUGU LETTER KA .. U+0C39 TELUGU LETTER HA (inherent -a).
+TE_CONSONANT = pynini.union(*[chr(i) for i in range(0x0C15, 0x0C3A)]).optimize()
+
+# Vulgar fraction signs read as their everyday words; a half fuses onto a vowel-final
+# integer (ఒకటిన్నర), anything else is "N మరియు <word>".
+VULGAR_WORDS = {"½": "అర", "¼": "పావు", "¾": "ముప్పావు"}
+HALF_SUFFIX = "న్నర"
+AND_WORD = "మరియు"
+# Written part nouns after a fraction (3/4 వంతు) that the verbalizer speaks itself.
+PART_NOUNS = ("వంతులు", "వంతు")
+# Spoken part nouns and the "N by M" word ITN accepts.
+ITN_PART_NOUNS = ("వంతులు", "వంతుల", "వంతు", "భాగాలు", "భాగం")
+BY_WORDS = ("బై",)
