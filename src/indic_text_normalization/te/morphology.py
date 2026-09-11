@@ -3,6 +3,8 @@ Telugu noun morphology shared by the TN verbalizers: plural/oblique scale words,
 counting-one ఒక, and case-suffix sandhi on the noun a number modifies.
 """
 
+import functools
+
 import pynini
 from pynini.lib import pynutil
 
@@ -74,13 +76,9 @@ def singularize_quantity(fst: pynini.Fst) -> pynini.Fst:
     return (fst @ pynini.union(table, other)).optimize()
 
 
-def suffix_sandhi() -> pynini.Fst:
+def _build_suffix_sandhi() -> pynini.Fst:
     """
-    Join a noun and the case suffix after ``SUFFIX_MARK`` with regular Telugu sandhi.
-
-    -లు + suffix -> -ల + suffix (రూపాయలు + కి -> రూపాయలకి); -లు + bare plural ల -> -ల
-    (వేలు + లలో -> వేలలో); -ం + కి/కు/ని -> -ానికి/-ాన్ని (శాతం + కి -> శాతానికి);
-    a vowel-sign suffix replaces a final -ు/-ి (ఐదు + ే -> ఐదే).
+    Build the sandhi rewrite chain; use ``suffix_sandhi``, which caches it.
     """
     mark = SUFFIX_MARK
     # -గా attaches to the nominative (రూపాయలుగా), so it takes no sandhi at all.
@@ -149,3 +147,19 @@ def count_nouns() -> list[str]:
     nouns = [row[0] for row in load_labels(data_path(LANG, "numbers/count_nouns.tsv"))]
     units = load_labels(data_path(LANG, "measure/unit.tsv"), min_fields=3)
     return nouns + [word for row in units for word in row[1:3]]
+
+
+@functools.cache
+def _suffix_sandhi_cached() -> pynini.Fst:
+    return _build_suffix_sandhi()
+
+
+def suffix_sandhi() -> pynini.Fst:
+    """
+    Join a noun and the case suffix after ``SUFFIX_MARK`` with regular Telugu sandhi.
+
+    -లు + suffix -> -ల + suffix (రూపాయలు + కి -> రూపాయలకి); -లు + bare plural ల -> -ల
+    (వేలు + లలో -> వేలలో); -ం + కి/కు/ని -> -ానికి/-ాన్ని (శాతం + కి -> శాతానికి);
+    a vowel-sign suffix replaces a final -ు/-ి (ఐదు + ే -> ఐదే).
+    """
+    return _suffix_sandhi_cached().copy()

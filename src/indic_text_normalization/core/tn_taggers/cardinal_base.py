@@ -85,6 +85,8 @@ class CardinalBase(GraphFst):
         self.digit: pynini.Fst
         self.zero: pynini.Fst
         self.graph_year_hundreds: pynini.Fst | None = None
+        # Set by a language whose cardinal already built it; reused instead of recomposed.
+        self.suffixed_graph: pynini.Fst | None = None
         self.ordinal_tails: tuple[str, ...] = ("",)
         self.known_suffixes: pynini.Fst
 

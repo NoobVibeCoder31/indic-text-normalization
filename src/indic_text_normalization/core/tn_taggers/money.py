@@ -76,9 +76,16 @@ class MoneyFst(GraphFst):
             + cardinal_graph
             + pynutil.insert(range_tail)
         )
+        # A range costs two more copies of the cardinal, so it gets one branch of its own
+        # rather than riding inside every branch that takes an amount.
         integer = (
             pynutil.insert('integer_part: "')
-            + (pynutil.add_weight(cardinal_graph, -0.1) | pynutil.add_weight(range_amount, -0.05))
+            + pynutil.add_weight(cardinal_graph, -0.1)
+            + pynutil.insert('"')
+        )
+        integer_range = (
+            pynutil.insert('integer_part: "')
+            + pynutil.add_weight(range_amount, -0.05)
             + pynutil.insert('"')
         )
         # ₹50.5 means 50 paise: a lone fractional digit is scaled by ten before lookup.
@@ -256,8 +263,18 @@ class MoneyFst(GraphFst):
             + optional_slash_dash
         )
 
+        graph_range = (
+            optional_graph_negative
+            + currency_major
+            + optional_space
+            + insert_space
+            + integer_range
+            + optional_slash_dash
+        )
+
         graph_currencies = (
             graph_major_only
+            | graph_range
             | graph_major_and_minor
             | pynutil.add_weight(graph_quantity, -0.2)
             | pynutil.add_weight(graph_long_fraction, 0.2)

@@ -19,16 +19,16 @@ class RangeFst(GraphFst):
     def __init__(self, cardinal: CardinalBase, deterministic: bool = True) -> None:
         super().__init__(name="range", kind="classify", deterministic=deterministic)
 
+        suffixed = cardinal.suffixed_graph
+        if suffixed is None:
+            suffixed = cardinal.attach_case_suffix(cardinal.final_graph)
         graph = (
             pynutil.insert('lower: "')
             + cardinal.final_graph
             + pynutil.insert('"')
             + pynutil.delete(pynini.closure(" ", 0, 1) + "-" + pynini.closure(" ", 0, 1))
             + pynutil.insert(' upper: "')
-            + (
-                cardinal.final_graph
-                | pynutil.add_weight(cardinal.attach_case_suffix(cardinal.final_graph), 0.1)
-            )
+            + (cardinal.final_graph | pynutil.add_weight(suffixed, 0.1))
             + pynutil.insert('"')
             + pynutil.insert(" preserve_order: true")
         )

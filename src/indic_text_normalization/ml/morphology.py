@@ -4,6 +4,8 @@ the glide and gemination that join a number word to a linking form, and the fuse
 thousands (അഞ്ച് + ആയിരം -> അഞ്ചായിരം).
 """
 
+import functools
+
 import pynini
 from pynini.lib import pynutil
 
@@ -66,13 +68,9 @@ def ordinal_stem() -> pynini.Fst:
     ).optimize()
 
 
-def suffix_sandhi() -> pynini.Fst:
+def _build_suffix_sandhi() -> pynini.Fst:
     """
-    Join a noun and the canonical case suffix after ``SUFFIX_MARK``.
-
-    virama-final: അഞ്ച് + ിൽ -> അഞ്ചിൽ, അഞ്ച് + ും -> അഞ്ചും; -ം: ആയിരം + ിൽ -> ആയിരത്തിൽ,
-    + ും -> ആയിരവും, + ായി -> ആയിരമായി; -ി: കോടി + ിൽ -> കോടിയിൽ, + ിന് -> കോടിക്ക്;
-    -അ: രൂപ + ിൽ -> രൂപയിൽ, + ിന് -> രൂപയ്ക്ക്; chillu: ഡോളർ + ിൽ -> ഡോളറിൽ.
+    Build the sandhi rewrite chain; use ``suffix_sandhi``, which caches it.
     """
     mark = SUFFIX_MARK
     # A suffix closes the value, so a dative/genitive rule must see its end.
@@ -196,3 +194,19 @@ NBSP_TO_SPACE = pynini.cdrewrite(pynini.cross(" ", " "), "", "", SIGMA).optimiz
 NOT_POINT_PHRASE = pynini.difference(
     pynini.closure(NOT_QUOTE, 1), SIGMA + POINT_WORD + SIGMA
 ).optimize()
+
+
+@functools.cache
+def _suffix_sandhi_cached() -> pynini.Fst:
+    return _build_suffix_sandhi()
+
+
+def suffix_sandhi() -> pynini.Fst:
+    """
+    Join a noun and the canonical case suffix after ``SUFFIX_MARK``.
+
+    virama-final: അഞ്ച് + ിൽ -> അഞ്ചിൽ, അഞ്ച് + ും -> അഞ്ചും; -ം: ആയിരം + ിൽ -> ആയിരത്തിൽ,
+    + ും -> ആയിരവും, + ായി -> ആയിരമായി; -ി: കോടി + ിൽ -> കോടിയിൽ, + ിന് -> കോടിക്ക്;
+    -അ: രൂപ + ിൽ -> രൂപയിൽ, + ിന് -> രൂപയ്ക്ക്; chillu: ഡോളർ + ിൽ -> ഡോളറിൽ.
+    """
+    return _suffix_sandhi_cached().copy()
