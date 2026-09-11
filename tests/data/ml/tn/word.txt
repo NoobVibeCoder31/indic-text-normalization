@@ -1,0 +1,12 @@
+# input~expected[~alt_expected...]
+നമസ്കാരം~നമസ്കാരം
+hello world~hello world
+അവൻ വീട്ടിലേക്ക് പോയി.~അവൻ വീട്ടിലേക്ക് പോയി .
+നമസ്കാരം, സുഖമാണോ?~നമസ്കാരം , സുഖമാണോ ?
+മലയാളം english കലർത്തി~മലയാളം english കലർത്തി
+# URLs pass through as one token
+www.google.com~www.google.com
+https://example.com/path~https://example.com/path
+# number words already spoken stay unchanged
+അഞ്ച് പേർ വന്നു~അഞ്ച് പേർ വന്നു
+ഒരു ദിവസം~ഒരു ദിവസം

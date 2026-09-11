@@ -4,6 +4,10 @@
 
 ### 🎨 Added
 
+- [TN] [ITN] [ml] Add Malayalam text normalization and inverse text normalization grammars:
+  `23 → ഇരുപത്തിമൂന്ന്`, `2024 → രണ്ടായിരത്തി ഇരുപത്തിനാല്`, `₹150ന് → നൂറ്റിയൻപത് രൂപയ്ക്ക്`,
+  `10:30 AM → രാവിലെ പത്ത് മണി മുപ്പത് മിനിറ്റ്`, `5-ാം → അഞ്ചാം`; ITN `അഞ്ചാം ക്ലാസ് → 5-ാം ക്ലാസ്`,
+  `അൻപത് രൂപയ്ക്ക് → ₹50ന്`.
 - [core] Shared TN and ITN taggers in `core/tn_taggers` and `core/itn_taggers`, bound to a
   language through `core/profile.LanguageProfile` and a `CardinalBase` subclass; shared
   verbalizers for languages whose nouns do not inflect (`InvariantMeasureFst`,

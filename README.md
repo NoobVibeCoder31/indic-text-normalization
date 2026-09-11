@@ -16,7 +16,7 @@ architecture of
 [NVIDIA NeMo-text-processing](https://github.com/NVIDIA/NeMo-text-processing). The
 implementation is a means, not the point — see [Project direction](#project-direction).
 
-Tamil and Telugu are supported today; Malayalam, Kannada and Hindi are planned.
+Tamil, Telugu and Malayalam are supported today; Kannada and Hindi are planned.
 
 ## What it does
 
@@ -25,8 +25,8 @@ Tamil and Telugu are supported today; Malayalam, Kannada and Hindi are planned.
 
 Semiotic classes: cardinal, ordinal, decimal, fraction, date, time, money, measure,
 telephone, range, plus whitelist/abbreviations, punctuation, and a pass-through word class.
-Native digits (Tamil ௦-௯, Telugu ౦-౯) and ASCII digits are both accepted in
-written form.
+Native digits (Tamil ௦-௯, Telugu ౦-౯, Malayalam ൦-൯) and ASCII digits are both accepted
+in written form.
 
 Telugu uses the formal register: `₹1,250.50` → `వెయ్యి రెండు వందల యాభై రూపాయల యాభై పైసలు`,
 `12.5` → `పన్నెండు దశాంశం ఐదు`, `10:30` → `పది గంటల ముప్పై నిమిషాలు`.
