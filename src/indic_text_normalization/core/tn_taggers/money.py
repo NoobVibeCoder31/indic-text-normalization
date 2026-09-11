@@ -69,6 +69,13 @@ class MoneyFst(GraphFst):
         )
         currency_major = pynutil.insert('currency_maj: "') + currency_graph + pynutil.insert('"')
         optional_space = pynini.closure(pynini.accep(" "), 0, 1)
+        # Every branch that reads the symbol first shares this head, and with it one copy
+        # of the amount. The weight that ranks a branch therefore rides on its tail: on the
+        # head it would make the shared prefixes differ and the copies would not merge.
+        currency_prefix = optional_graph_negative + currency_major + optional_space + insert_space
+        open_amount = pynutil.insert('integer_part: "')
+        close_amount = pynutil.insert('"')
+
         range_word, range_tail = profile.range_phrase
         range_amount = (
             cardinal_graph
@@ -76,18 +83,9 @@ class MoneyFst(GraphFst):
             + cardinal_graph
             + pynutil.insert(range_tail)
         )
-        # A range costs two more copies of the cardinal, so it gets one branch of its own
-        # rather than riding inside every branch that takes an amount.
-        integer = (
-            pynutil.insert('integer_part: "')
-            + pynutil.add_weight(cardinal_graph, -0.1)
-            + pynutil.insert('"')
-        )
-        integer_range = (
-            pynutil.insert('integer_part: "')
-            + pynutil.add_weight(range_amount, -0.05)
-            + pynutil.insert('"')
-        )
+        integer = open_amount + cardinal_graph + pynutil.add_weight(close_amount, -0.1)
+        integer_range = open_amount + range_amount + pynutil.add_weight(close_amount, -0.05)
+
         # ₹50.5 means 50 paise: a lone fractional digit is scaled by ten before lookup.
         one_digit_padded = pynini.union(
             DIGIT + pynutil.insert("0"), native_digit + pynutil.insert(native_zero)
@@ -107,6 +105,9 @@ class MoneyFst(GraphFst):
             + pynutil.insert('"')
         )
         currency_minor = pynutil.insert('currency_min: "centiles"')
+        minor_amount = (
+            optional_space + pynini.cross(".", " ") + fraction + insert_space + currency_minor
+        )
 
         optional_slash_dash = pynini.closure(
             pynutil.add_weight(
@@ -115,49 +116,9 @@ class MoneyFst(GraphFst):
             0,
             1,
         )
-
-        graph_major_only = (
-            optional_graph_negative
-            + currency_major
-            + optional_space
-            + insert_space
-            + integer
-            + optional_slash_dash
-        )
-        graph_major_and_minor = (
-            optional_graph_negative
-            + currency_major
-            + optional_space
-            + insert_space
-            + integer
-            + optional_space
-            + pynini.cross(".", " ")
-            + fraction
-            + insert_space
-            + currency_minor
-            + optional_slash_dash
-        )
-
-        graph_major_only_suffix = (
-            optional_graph_negative
-            + integer
-            + insert_space
-            + optional_space
-            + currency_major
-            + optional_slash_dash
-        )
-        graph_major_and_minor_suffix = (
-            optional_graph_negative
-            + integer
-            + optional_space
-            + pynini.cross(".", " ")
-            + fraction
-            + optional_space
-            + insert_space
-            + currency_minor
-            + insert_space
-            + currency_major
-            + optional_slash_dash
+        # A trailing .00 minor part is silent (₹1,999.00 -> ...రూపాయలు).
+        delete_zero_frac = pynutil.delete(
+            pynini.union(".00", "." + native_zero + native_zero, ".0", "." + native_zero)
         )
 
         # ₹5 కోట్లు style: the amount carries a scale word and the currency reads after it.
@@ -184,32 +145,53 @@ class MoneyFst(GraphFst):
         amount_scaled = amount_with_point
         if amount_before_scale is not None:
             amount_scaled = (amount_with_point @ amount_before_scale).optimize()
-        graph_quantity = (
-            optional_graph_negative
-            + currency_major
-            + optional_space
-            + insert_space
-            + pynutil.insert('integer_part: "')
-            + amount_scaled
-            + quantity_word
-            + pynutil.insert('"')
-            + optional_slash_dash
+
+        # ₹50, ₹50.50 and ₹1,999.00 all read the same integer amount.
+        after_integer = (
+            optional_slash_dash
+            | minor_amount + optional_slash_dash
+            | pynutil.add_weight(delete_zero_frac + optional_slash_dash, -0.1)
         )
+        after_amount = pynutil.add_weight(quantity_word + close_amount + optional_slash_dash, -0.2)
+        if inflected_quantity is not None:
+            after_amount |= pynutil.add_weight(
+                pynini.accep(" ") + inflected_quantity + close_amount, -0.1
+            )
+        extra_case_amount = None
+        if profile.case_suffixes:
+            # ₹150కి: a case suffix on the amount is carried as a field and attached to the
+            # currency word by the verbalizer; it may also follow a scale word.
+            case_suffix = (
+                pynutil.insert(' suffix: "')
+                + pynini.union(*profile.case_suffixes)
+                + pynutil.insert('"')
+            )
+            # ₹50.50కి: a case suffix after a paise amount attaches to the minor currency
+            # word, not to the major one.
+            after_integer |= pynutil.add_weight(minor_amount + case_suffix, -0.2)
+            if amount_before_scale is None:
+                after_amount |= pynutil.add_weight(
+                    pynini.closure(quantity_word, 0, 1) + close_amount + case_suffix, -0.1
+                )
+            else:
+                after_amount |= pynutil.add_weight(quantity_word + close_amount + case_suffix, -0.1)
+                # A scaled amount is a graph of its own, so the plain one needs its branch.
+                extra_case_amount = pynutil.add_weight(
+                    currency_prefix + open_amount + amount_with_point + close_amount + case_suffix,
+                    -0.1,
+                )
 
         # ₹50.123: three or more minor digits are not paise; read as a decimal amount.
         long_fraction = pynini.compose(
             pynini.closure(profile.any_digit, 3), cardinal.digit_by_digit
         )
         graph_long_fraction = (
-            optional_graph_negative
-            + currency_major
-            + optional_space
-            + insert_space
-            + pynutil.insert('integer_part: "')
+            currency_prefix
+            + open_amount
             + cardinal_graph
             + pynini.cross(".", point_word)
             + long_fraction
-            + pynutil.insert('"')
+            + pynutil.add_weight(close_amount, 0.2)
         )
 
         # 50/- with no symbol is rupees.
@@ -218,21 +200,7 @@ class MoneyFst(GraphFst):
             + insert_space
             + integer
             + optional_space
-            + pynutil.delete("/-")
-        )
-
-        # A trailing .00 minor part is silent (₹1,999.00 -> ...రూపాయలు).
-        delete_zero_frac = pynutil.delete(
-            pynini.union(".00", "." + native_zero + native_zero, ".0", "." + native_zero)
-        )
-        graph_zero_frac = (
-            optional_graph_negative
-            + currency_major
-            + optional_space
-            + insert_space
-            + integer
-            + delete_zero_frac
-            + optional_slash_dash
+            + pynutil.add_weight(pynutil.delete("/-"), -0.1)
         )
 
         # ₹.50 reads as paise only (symbol currencies only: Rs./రూ. own the dot).
@@ -248,7 +216,7 @@ class MoneyFst(GraphFst):
             + pynini.cross(".", " ")
             + fraction
             + insert_space
-            + currency_minor
+            + pynutil.add_weight(currency_minor, -0.1)
         )
 
         # ₹-500: the sign may follow the symbol.
@@ -260,78 +228,43 @@ class MoneyFst(GraphFst):
             + optional_space
             + insert_space
             + integer
-            + optional_slash_dash
+            + pynutil.add_weight(optional_slash_dash, 0.1)
         )
 
-        graph_range = (
+        # The amount may also stand before the currency word (50 రూపాయలు, 50.50 రూపాయలు).
+        graph_major_only_suffix = (
             optional_graph_negative
+            + integer
+            + insert_space
+            + optional_space
             + currency_major
+            + optional_slash_dash
+        )
+        graph_major_and_minor_suffix = (
+            optional_graph_negative
+            + integer
+            + optional_space
+            + pynini.cross(".", " ")
+            + fraction
             + optional_space
             + insert_space
-            + integer_range
+            + currency_minor
+            + insert_space
+            + currency_major
             + optional_slash_dash
         )
 
         graph_currencies = (
-            graph_major_only
-            | graph_range
-            | graph_major_and_minor
-            | pynutil.add_weight(graph_quantity, -0.2)
-            | pynutil.add_weight(graph_long_fraction, 0.2)
-            | pynutil.add_weight(graph_slash_rupee, -0.1)
-            | pynutil.add_weight(graph_zero_frac, -0.1)
-            | pynutil.add_weight(graph_bare_paise, -0.1)
-            | pynutil.add_weight(negative_after_currency, 0.1)
+            currency_prefix + integer + after_integer
+            | currency_prefix + integer_range + optional_slash_dash
+            | currency_prefix + open_amount + amount_scaled + after_amount
+            | graph_long_fraction
+            | graph_slash_rupee
+            | graph_bare_paise
+            | negative_after_currency
             | pynutil.add_weight(graph_major_only_suffix | graph_major_and_minor_suffix, 0.5)
         )
-
-        if profile.case_suffixes:
-            # ₹150కి: a case suffix on the amount is carried as a field and attached to
-            # the currency word by the verbalizer; it may also follow a scale word.
-            case_suffix = (
-                pynutil.insert(' suffix: "')
-                + pynini.union(*profile.case_suffixes)
-                + pynutil.insert('"')
-            )
-            graph_major_kku = (
-                optional_graph_negative
-                + currency_major
-                + optional_space
-                + insert_space
-                + pynutil.insert('integer_part: "')
-                + (amount_scaled + quantity_word | amount_with_point | cardinal_graph)
-                + pynutil.insert('"')
-                + case_suffix
-            )
-            # ₹50.50కి: a case suffix after a paise amount attaches to the minor
-            # currency word, not to the major one.
-            graph_minor_kku = (
-                optional_graph_negative
-                + currency_major
-                + optional_space
-                + insert_space
-                + integer
-                + optional_space
-                + pynini.cross(".", " ")
-                + fraction
-                + insert_space
-                + currency_minor
-                + case_suffix
-            )
-            graph_currencies |= pynutil.add_weight(graph_major_kku, -0.1)
-            graph_currencies |= pynutil.add_weight(graph_minor_kku, -0.2)
-        if inflected_quantity is not None:
-            graph_inflected = (
-                optional_graph_negative
-                + currency_major
-                + optional_space
-                + insert_space
-                + pynutil.insert('integer_part: "')
-                + amount_scaled
-                + pynini.accep(" ")
-                + inflected_quantity
-                + pynutil.insert('"')
-            )
-            graph_currencies |= pynutil.add_weight(graph_inflected, -0.1)
+        if extra_case_amount is not None:
+            graph_currencies |= extra_case_amount
 
         self.fst = self.add_tokens(graph_currencies.optimize())

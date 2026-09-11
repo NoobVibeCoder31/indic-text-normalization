@@ -1,0 +1,5 @@
+# ITN keeps abbreviation words unchanged
+ಡಾಕ್ಟರ್~ಡಾಕ್ಟರ್
+ಐದು ಪ್ರತಿಶತ~5 ಪ್ರತಿಶತ
+# a spoken sign word before a number is the sign
+ಐದು ಪ್ಲಸ್ ಮೂರು ಸಮ ಎಂಟು~5 +3 ಸಮ 8

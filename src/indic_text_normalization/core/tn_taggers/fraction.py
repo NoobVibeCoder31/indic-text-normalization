@@ -5,7 +5,7 @@ TN tagger for fractions and vulgar-fraction signs, shared by every language.
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.core.graph_utils import GraphFst
+from indic_text_normalization.core.graph_utils import GraphFst, rank
 from indic_text_normalization.core.tn_taggers.cardinal_base import CardinalBase
 
 
@@ -91,7 +91,7 @@ class FractionFst(GraphFst):
         if and_word is not None:
             word |= cardinal_graph + optional_space + pynutil.insert(f" {and_word} ") + vulgar_word
         if mixed_vulgar is not None:
-            word |= pynutil.add_weight(mixed_vulgar, -0.1)
+            word |= mixed_vulgar + rank(-0.1)
         word += part_noun
         graph |= optional_negative + pynutil.insert('word: "') + word + pynutil.insert('"')
 

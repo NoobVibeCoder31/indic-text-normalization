@@ -1,0 +1,12 @@
+# input~expected[~alt_expected...]
+ನಮಸ್ಕಾರ~ನಮಸ್ಕಾರ
+hello world~hello world
+ಅವನು ಮನೆಗೆ ಹೋದನು.~ಅವನು ಮನೆಗೆ ಹೋದನು .
+ನಮಸ್ಕಾರ, ಹೇಗಿದ್ದೀರಿ?~ನಮಸ್ಕಾರ , ಹೇಗಿದ್ದೀರಿ ?
+ಕನ್ನಡ english ಬೆರೆಸಿ~ಕನ್ನಡ english ಬೆರೆಸಿ
+# URLs pass through as one token
+www.google.com~www.google.com
+https://example.com/path~https://example.com/path
+# number words already spoken stay unchanged
+ಐದು ಜನ ಬಂದರು~ಐದು ಜನ ಬಂದರು
+ಒಂದು ದಿನ~ಒಂದು ದಿನ
