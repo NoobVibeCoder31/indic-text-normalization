@@ -1,0 +1,30 @@
+# input~expected[~alt_expected...]
+ಹನ್ನೆರಡು ದಶಾಂಶ ಐದು~12.5
+ಸೊನ್ನೆ ದಶಾಂಶ ಐದು~0.5
+ಮೂರು ದಶಾಂಶ ಒಂದು ನಾಲ್ಕು~3.14
+ಮೈನಸ್ ಎರಡು ದಶಾಂಶ ಐದು~-2.5
+ಹನ್ನೆರಡು ಪಾಯಿಂಟ್ ಐದು~12.5
+ನೂರು ದಶಾಂಶ ಎರಡು ಐದು~100.25
+# fused half and quarter words (bare ಅರ್ಧ/ಕಾಲು stay nouns, see word.txt)
+ಒಂದೂವರೆ~1.5
+ಎರಡೂವರೆ ಕಿಲೋ~2.5 ಕಿಲೋ
+ಹತ್ತೂವರೆ~10.5
+ಎರಡೂಕಾಲು~2.25
+ಎರಡೂಮುಕ್ಕಾಲು~2.75
+ಹತ್ತೂಮುಕ್ಕಾಲು~10.75
+# dotted chains round-trip
+ಒಂದು ದಶಾಂಶ ಎರಡು ದಶಾಂಶ ಮೂರು~1.2.3
+# a scale word after a decimal is kept as a word, never expanded into zeros
+ಐದು ದಶಾಂಶ ಐದು ಲಕ್ಷ~5.5 ಲಕ್ಷ
+ಒಂದು ದಶಾಂಶ ಐದು ಕೋಟಿ~1.5 ಕೋಟಿ
+ಎರಡು ದಶಾಂಶ ಐದು ಲಕ್ಷ ಜನ~2.5 ಲಕ್ಷ ಜನ
+# three-digit fractional words
+ಮೂರು ದಶಾಂಶ ನೂರಾ ನಲವತ್ತೊಂದು~3.141
+# the sign field reaches the decimal path as well
+ಪ್ಲಸ್ ಐದು ದಶಾಂಶ ಐದು~+5.5
+ಪ್ಲಸ್ ಸೊನ್ನೆ ದಶಾಂಶ ಸೊನ್ನೆ~+0.0
+# a scale word too large to expand stays a word beside a fused half form
+ಒಂದೂವರೆ ಲಕ್ಷ~1.5 ಲಕ್ಷ
+# the vulgar-sign readings TN emits
+ಐದು ಮತ್ತು ಅರ್ಧ~5.5
+ಎರಡು ಮತ್ತು ಮುಕ್ಕಾಲು~2.75
