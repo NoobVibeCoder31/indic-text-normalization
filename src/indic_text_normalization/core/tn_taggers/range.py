@@ -5,7 +5,7 @@ TN tagger for numeric ranges like 10-20, shared by every language.
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.core.graph_utils import GraphFst
+from indic_text_normalization.core.graph_utils import GraphFst, rank
 from indic_text_normalization.core.tn_taggers.cardinal_base import CardinalBase
 
 
@@ -28,7 +28,7 @@ class RangeFst(GraphFst):
             + pynutil.insert('"')
             + pynutil.delete(pynini.closure(" ", 0, 1) + "-" + pynini.closure(" ", 0, 1))
             + pynutil.insert(' upper: "')
-            + (cardinal.final_graph | pynutil.add_weight(suffixed, 0.1))
+            + (cardinal.final_graph | suffixed + rank(0.1))
             + pynutil.insert('"')
             + pynutil.insert(" preserve_order: true")
         )

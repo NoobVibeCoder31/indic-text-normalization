@@ -76,6 +76,14 @@ MIN_NEG_WEIGHT = -0.0001
 MIN_POS_WEIGHT = 0.0001
 
 
+def rank(weight: float) -> pynini.Fst:
+    """
+    A weight-carrying epsilon for the tail of a union branch: at the head the same weight
+    would keep the branch's prefix from merging with its neighbours'.
+    """
+    return pynutil.insert("", weight)
+
+
 def unweighted(fst: pynini.Fst) -> pynini.Fst:
     """
     Drop every arc weight, leaving only the consuming grammar's own weights to rank paths.

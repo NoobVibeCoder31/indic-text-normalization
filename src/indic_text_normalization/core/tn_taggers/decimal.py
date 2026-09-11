@@ -5,7 +5,7 @@ TN tagger for decimals, shared by every language.
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.core.graph_utils import DIGIT, GraphFst, insert_space
+from indic_text_normalization.core.graph_utils import DIGIT, GraphFst, insert_space, rank
 from indic_text_normalization.core.tn_taggers.cardinal_base import CardinalBase, delete_commas
 from indic_text_normalization.core.tn_taggers.quantities import quantity_words
 
@@ -52,7 +52,7 @@ class DecimalFst(GraphFst):
 
         self.graph_fractional = (
             pynutil.insert('fractional_part: "')
-            + (self.graph | pynutil.add_weight(cardinal.attach_case_suffix(self.graph), 0.1))
+            + (self.graph | cardinal.attach_case_suffix(self.graph) + rank(0.1))
             + pynutil.insert('"')
         )
         self.graph_integer = pynutil.insert('integer_part: "') + integer_graph + pynutil.insert('"')
