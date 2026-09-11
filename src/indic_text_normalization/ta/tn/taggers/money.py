@@ -15,11 +15,12 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.ta.constants import CHAR, DIGIT, TA_DIGIT, GraphFst, insert_space
+from indic_text_normalization.core.utils import data_path
+from indic_text_normalization.core.graph_utils import CHAR, DIGIT, GraphFst, insert_space
+from indic_text_normalization.ta.constants import LANG, TA_DIGIT
 from indic_text_normalization.ta.tn.taggers.cardinal import CardinalFst
-from indic_text_normalization.ta.utils import get_abs_path
 
-currency_graph = pynini.string_file(get_abs_path("data/money/currency.tsv"))
+currency_graph = pynini.string_file(data_path(LANG, "money/currency.tsv"))
 
 
 class MoneyFst(GraphFst):

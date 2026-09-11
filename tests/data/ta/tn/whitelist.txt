@@ -16,3 +16,9 @@
 10%ஆக~பத்து சதவீதமாக
 5%இல்~ஐந்து சதவீதத்தில்
 5%க்கும்~ஐந்து சதவீதத்துக்கும்
+# sweep-fix S2: @ and _ are spoken next to Tamil letters or marks, kept inside identifiers
+@ரவி~எட் ரவி
+(@)~( எட் )
+ரவி_குமார்~ரவி அடிக்கோடு குமார்
+user@example.com~user@example.com
+a_b~a_b

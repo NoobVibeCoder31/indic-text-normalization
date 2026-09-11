@@ -3,17 +3,10 @@
 Reference numbers for the Tamil TN and ITN grammars, so a future change can be compared
 against a known point rather than a remembered one.
 
-Reproduce with [`benchmarks/perf_ta.py`](../../../benchmarks/perf_ta.py), which pins the
-sample sentences below. **Compare against the same samples** — the script's sample lists
-should not be edited casually, because changing one invalidates comparison with this table.
-
-```bash
-# Each direction builds in its own process: building both in one inflates the second
-# under the first's memory pressure.
-uv run python benchmarks/perf_ta.py build tn  --cache-dir /tmp/perf
-uv run python benchmarks/perf_ta.py build itn --cache-dir /tmp/perf
-uv run python benchmarks/perf_ta.py measure   --cache-dir /tmp/perf
-```
+Measured with an out-of-tree performance harness that pins the sample sentences below.
+**Compare against the same samples** — the pinned lists should not be edited casually,
+because changing one invalidates comparison with this table. Each direction is built in its
+own process: building both in one inflates the second under the first's memory pressure.
 
 ## Reference machine
 
@@ -26,27 +19,27 @@ uv run python benchmarks/perf_ta.py measure   --cache-dir /tmp/perf
 | Python | 3.12.3 |
 | pynini | 2.1.6.post1 |
 
-Measured 2026-09-09, single-threaded, on an otherwise idle machine.
+Measured 2026-09-10, single-threaded, on an otherwise idle machine.
 
 ## Grammar compilation (cold, no cache)
 
 | direction | build time | peak RSS | FAR size | classify states |
 |---|---|---|---|---|
-| TN | 115.1 s | 5,466 MB | 104 MB | 3,506,577 |
-| ITN | 108.4 s | 3,335 MB | 71 MB | 2,428,629 |
+| TN | 81.0 s | 3,840 MB | 86 MB | 2,886,548 |
+| ITN | 41.1 s | 1,561 MB | 9 MB | 251,522 |
 
-Compilation needs roughly **6 GB of free RAM** for TN; a machine with less will swap or be
+Compilation needs roughly **4 GB of free RAM** for TN; a machine with less will swap or be
 killed. This cost is paid once — pass `cache_dir=` and the FAR is reused.
 
 ## Loading from the FAR cache
 
 | | |
 |---|---|
-| TN load | 0.92 s |
-| ITN load | 0.49 s |
-| resident after both loaded | 1,134 MB |
+| TN load | 0.47 s |
+| ITN load | 0.12 s |
+| resident after both loaded | 631 MB |
 
-Budget about **1.2 GB of RSS** to hold both directions in a long-running process.
+Budget about **0.7 GB of RSS** to hold both directions in a long-running process.
 
 ## Per-sentence latency
 
@@ -56,33 +49,29 @@ Median of 20 timed runs after one warm-up, both directions loaded in one process
 
 | input | chars | median | min | max |
 |---|---|---|---|---|
-| `௧௨` | 2 | 1.3 ms | 1.2 | 2.8 |
-| `இன்று 15-06-2024 அன்று ₹1,250.50 செலுத்தப்பட்டது.` | 49 | 13.7 ms | 9.2 | 17.6 |
-| `அவரின் தொலைபேசி எண் +91 9876543210 ஆகும்.` | 41 | 9.5 ms | 7.4 | 10.5 |
-| `காலை 10:30 மணிக்கு 5.5 கிலோ அரிசி ₹2,499/- க்கு வாங்கினேன்.` | 59 | 6.5 ms | 6.2 | 8.3 |
-| `2024ல் 3/4 பங்கு மக்கள் 25% வளர்ச்சி கண்டனர், அதாவது ₹5 கோடி.` | 61 | 5.8 ms | 5.6 | 7.9 |
-| **total across the five** | | **37 ms** | | |
+| `௧௨` | 2 | 1.2 ms | 1.1 | 2.6 |
+| `இன்று 15-06-2024 அன்று ₹1,250.50 செலுத்தப்பட்டது.` | 49 | 10.8 ms | 8.9 | 20.1 |
+| `அவரின் தொலைபேசி எண் +91 9876543210 ஆகும்.` | 41 | 10.3 ms | 7.8 | 13.8 |
+| `காலை 10:30 மணிக்கு 5.5 கிலோ அரிசி ₹2,499/- க்கு வாங்கினேன்.` | 59 | 7.8 ms | 7.1 | 12.8 |
+| `2024ல் 3/4 பங்கு மக்கள் 25% வளர்ச்சி கண்டனர், அதாவது ₹5 கோடி.` | 61 | 5.9 ms | 5.1 | 7.4 |
+| **total across the five** | | **36 ms** | | |
 
 ### ITN (spoken → written)
 
 | input | chars | median | min | max |
 |---|---|---|---|---|
-| `பன்னிரண்டு` | 10 | 10.0 ms | 9.6 | 10.6 |
-| `பதினைந்து ஜூன் … ஐம்பது பைசா` | 94 | 285.6 ms | 266.9 | 317.6 |
-| `ஒன்பது ஒன்பது … ஏழு பூஜ்யம்` | 64 | 196.6 ms | 178.0 | 220.7 |
-| `காலை பத்து மணி … ஐந்து கிலோ அரிசி` | 60 | 202.6 ms | 175.7 | 218.9 |
-| `இரண்டாயிரத்து … இருபத்தைந்து சதவீதம் வளர்ச்சி` | 89 | 204.9 ms | 190.2 | 222.1 |
-| **total across the five** | | **900 ms** | | |
+| `பன்னிரண்டு` | 10 | 0.3 ms | 0.3 | 0.3 |
+| `பதினைந்து ஜூன் … ஐம்பது பைசா` | 94 | 3.3 ms | 3.2 | 4.9 |
+| `ஒன்பது ஒன்பது … ஏழு பூஜ்யம்` | 64 | 2.8 ms | 2.8 | 3.0 |
+| `காலை பத்து மணி … ஐந்து கிலோ அரிசி` | 60 | 2.1 ms | 2.1 | 2.7 |
+| `இரண்டாயிரத்து … இருபத்தைந்து சதவீதம் வளர்ச்சி` | 89 | 2.4 ms | 2.4 | 4.9 |
+| **total across the five** | | **11 ms** | | |
 
 ## Reading these numbers
 
 - **Latency depends on the input**, so these figures are a reference point, not a
-  guarantee. Length matters less than what is in the sentence: the 61-character TN sample
-  is faster than the 49-character one, because cost follows how many semiotic classes the
-  tokenizer must weigh, not how many characters there are.
-- **ITN is roughly 20× slower per sentence than TN.** Its grammar is smaller (2.4 M vs
-  3.5 M states) but its inputs are many short word tokens, each of which the tokenizer
-  must arbitrate between the number classes, where TN's digits commit early.
+  guarantee. Length matters less than what is in the sentence: cost follows how many
+  semiotic classes the tokenizer must weigh, not how many characters there are.
 - **Latency tracks classify-FST size almost exactly.** Profiling `normalize` shows
   `tottime ≈ cumtime` — the token parser, field permutation and verbalization together
   account for under 1% of a call. Any latency work is grammar-size work; Python-level
@@ -91,12 +80,14 @@ Median of 20 timed runs after one warm-up, both directions loaded in one process
 
 ## History
 
-| date | change | ITN states | ITN build | ITN peak | TN→ITN round trip |
+| date | change | ITN states | ITN build | ITN peak | ITN latency (5 samples) |
 |---|---|---|---|---|---|
-| 2026-09-08 | after the ITN probe fixes | 4,334,292 | 210 s | 5,762 MB | ~544 ms |
-| 2026-09-08 | pre-map domain restricted, quarter stems bounded | 2,828,101 | 117 s | 4,029 MB | 383 ms |
-| 2026-09-09 | date/time range-bound, decimal and time factored, TN money factored | 2,428,629 | 108 s | 3,335 MB | 264 ms |
+| 2026-09-08 | after the ITN probe fixes | 4,334,292 | 210 s | 5,762 MB | — |
+| 2026-09-08 | pre-map domain restricted, quarter stems bounded | 2,828,101 | 117 s | 4,029 MB | — |
+| 2026-09-09 | date/time range-bound, decimal and time factored, TN money factored | 2,428,629 | 108 s | 3,335 MB | 900 ms |
+| 2026-09-10 | reading graphs made input-deterministic (`sequential`), TN pre-pass moved to call time | 251,522 | 41 s | 1,561 MB | 11 ms |
 
-The round-trip column is `inverse_normalize(normalize(n))` over the integers 300-399,
-which is a different workload from the sentence samples above and is not comparable to
-them; it is kept because the three rows were measured the same way.
+The 2026-09-10 row is the `sequential()` change described in `dev-changelog.md`: an
+inverted TN grammar emits its digits before reading any input, so every ITN tagger that
+embedded one explored the whole digit skeleton at each word start. Determinizing on the
+input side leaves the relation unchanged and cuts ITN to a twentieth of its size.

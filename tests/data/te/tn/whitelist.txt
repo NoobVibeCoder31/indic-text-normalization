@@ -1,0 +1,35 @@
+# input~expected[~alt_expected...]
+డా. రావు~డాక్టర్ రావు
+ప్రొ. శర్మ~ప్రొఫెసర్ శర్మ
+5×3=15 అవుతుంది.~ఐదు గుణించి మూడు సమానం పదిహేను అవుతుంది .
+5%~ఐదు శాతం
+10÷2~పది భాగించి రెండు
+5 & 6~ఐదు మరియు ఆరు
+# percent-bracket split, square brackets, doubled symbols
+(1.5%)~( ఒకటి దశాంశం ఐదు శాతం )
+[5]~[ ఐదు ]
+5%%~ఐదు శాతం శాతం
+# case suffixes on %
+10%కి~పది శాతానికి
+10%కు~పది శాతానికి
+10%గా~పది శాతంగా
+5%లో~ఐదు శాతంలో
+5%కంటే~ఐదు శాతం కంటే
+5%నుండి~ఐదు శాతం నుండి
+# multi-word symbol expansions are spoken with plain spaces (no U+00A0)
+→~కుడి బాణం
+5 → 10~ఐదు కుడి బాణం పది
+™~ట్రేడ్ మార్క్
+±~ప్లస్ మైనస్
+# probe-fix T7: more case suffixes on %
+5%ే~ఐదు శాతమే
+5%ల~ఐదు శాతాల
+5%కీ~ఐదు శాతానికీ
+# sweep-fix S2: @ and _ are spoken next to Telugu letters or marks, kept inside identifiers
+@రవి~ఎట్ రవి
+(@)~( ఎట్ )
+రవి_కుమార్~రవి అండర్ స్కోర్ కుమార్
+user@example.com~user@example.com
+a_b~a_b
+5_6~ఐదు అండర్ స్కోర్ ఆరు
+5@~ఐదు ఎట్

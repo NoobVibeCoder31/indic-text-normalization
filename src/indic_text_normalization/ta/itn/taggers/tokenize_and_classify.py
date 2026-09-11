@@ -5,15 +5,12 @@ Tamil ITN sentence classifier composing all ITN taggers.
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.ta.constants import (
-    DIGIT,
-    SPACE,
-    TA_DIGIT,
-    WHITE_SPACE,
-    GraphFst,
-    delete_extra_space,
-    delete_space,
-)
+from indic_text_normalization.core.graph_utils import DIGIT
+from indic_text_normalization.core.punctuation import PunctuationFst
+from indic_text_normalization.core.scales import kept_scale_words
+from indic_text_normalization.core.sentence import SentenceClassifyFst, written_number_passthrough
+from indic_text_normalization.core.word import WordFst
+from indic_text_normalization.ta.constants import LANG, TA_BLOCK, TA_DIGIT, TA_LETTER
 from indic_text_normalization.ta.itn.taggers.cardinal import CardinalFst
 from indic_text_normalization.ta.itn.taggers.date import DateFst
 from indic_text_normalization.ta.itn.taggers.decimal import DecimalFst
@@ -21,21 +18,17 @@ from indic_text_normalization.ta.itn.taggers.fraction import FractionFst
 from indic_text_normalization.ta.itn.taggers.money import MoneyFst
 from indic_text_normalization.ta.itn.taggers.ordinal import OrdinalFst
 from indic_text_normalization.ta.itn.taggers.prose import ProseFst
-from indic_text_normalization.ta.punctuation import PunctuationFst
 from indic_text_normalization.ta.itn.taggers.telephone import TelephoneFst
 from indic_text_normalization.ta.itn.taggers.time import TimeFst
-from indic_text_normalization.ta.word import WordFst
 from indic_text_normalization.ta.tn.taggers.cardinal import CardinalFst as TnCardinalFst
 
 
-class ClassifyFst(GraphFst):
+class ClassifyFst(SentenceClassifyFst):
     """
     Composes all Tamil ITN taggers into a single sentence classifier.
     """
 
     def __init__(self, deterministic: bool = True) -> None:
-        super().__init__(name="tokenize_and_classify", kind="classify", deterministic=deterministic)
-
         tn_cardinal = TnCardinalFst(deterministic=deterministic)
         cardinal = CardinalFst(tn_cardinal=tn_cardinal, deterministic=deterministic)
         decimal = DecimalFst(cardinal=cardinal, deterministic=deterministic)
@@ -45,23 +38,16 @@ class ClassifyFst(GraphFst):
         time = TimeFst(cardinal=cardinal, deterministic=deterministic)
         money = MoneyFst(cardinal=cardinal, deterministic=deterministic)
         telephone = TelephoneFst(deterministic=deterministic)
-        punctuation = PunctuationFst(deterministic=deterministic)
+        punctuation = PunctuationFst(LANG, deterministic=deterministic)
         prose = ProseFst(deterministic=deterministic)
 
-        # Already-written numbers (ITN output re-fed) pass through untouched, including
-        # a telephone country code (+91) which must not split into punctuation + digits.
-        digits_passthrough = (
-            pynini.closure(pynini.union("-", "+"), 0, 1)
-            + pynini.closure(pynini.union(*"₹$£€¥₩₺৳₦"), 0, 1)
-            + pynini.closure(pynini.union(DIGIT, TA_DIGIT), 1)
-            + pynini.closure(
-                pynini.union(*".:,/") + pynini.closure(pynini.union(DIGIT, TA_DIGIT), 1)
-            )
+        written = written_number_passthrough(
+            digit=pynini.union(DIGIT, TA_DIGIT),
+            letter=TA_LETTER,
+            scale_words=kept_scale_words(LANG),
         )
-        digits_token = pynutil.insert('name: "') + digits_passthrough + pynutil.insert('"')
-
         classify = (
-            pynutil.add_weight(digits_token, 0.8)
+            pynutil.add_weight(written, 0.8)
             | pynutil.add_weight(prose.fst, 1.0)
             | pynutil.add_weight(telephone.fst, 0.9)
             | pynutil.add_weight(date.fst, 1.04)
@@ -72,39 +58,5 @@ class ClassifyFst(GraphFst):
             | pynutil.add_weight(ordinal.fst, 1.09)
             | pynutil.add_weight(cardinal.fst, 1.1)
         )
-
-        word_graph = WordFst(punctuation=punctuation, deterministic=deterministic).fst
-
-        punct = (
-            pynutil.insert("tokens { ")
-            + pynutil.add_weight(punctuation.fst, weight=2.1)
-            + pynutil.insert(" }")
-        )
-        punct = pynini.closure(
-            pynini.union(
-                pynini.compose(pynini.closure(WHITE_SPACE, 1), delete_extra_space),
-                (pynutil.insert(SPACE) + punct),
-            ),
-            1,
-        )
-
-        classify = pynini.union(classify, pynutil.add_weight(word_graph, 100))
-        token = pynutil.insert("tokens { ") + classify + pynutil.insert(" }")
-        token_plus_punct = (
-            pynini.closure(punct + pynutil.insert(SPACE))
-            + token
-            + pynini.closure(pynutil.insert(SPACE) + punct)
-        )
-
-        graph = token_plus_punct + pynini.closure(
-            pynini.union(
-                pynini.compose(pynini.closure(WHITE_SPACE, 1), delete_extra_space),
-                (pynutil.insert(SPACE) + punct + pynutil.insert(SPACE)),
-            )
-            + token_plus_punct
-        )
-
-        graph = delete_space + graph + delete_space
-        graph = pynini.union(graph, punct)
-
-        self.fst = graph.optimize()
+        word = WordFst(punctuation, script=TA_BLOCK, deterministic=deterministic)
+        super().__init__(classify, punctuation=punctuation, word=word, deterministic=deterministic)

@@ -1,0 +1,28 @@
+# input~expected[~alt_expected...]
+నమస్కారం మిత్రులారా~నమస్కారం మిత్రులారా
+hello world~hello world
+# written numbers pass through ITN untouched
+-5 డిగ్రీలు~-5 డిగ్రీలు
+10:30 అవుతుంది~10:30 అవుతుంది
+-₹500~-₹500
+2024లో~2024లో
+5వ తరగతి~5వ తరగతి
+3/4~3/4
+# prose negative controls: no conversion of ఒక, అర, పావు, or number-like words
+ఒక రోజు ఒక రాజు~ఒక రోజు ఒక రాజు
+ఒకవేళ వస్తే~ఒకవేళ వస్తే
+అర గంట ఆగండి~అర గంట ఆగండి
+పావు గంట~పావు గంట
+ఒకటే మాట~ఒకటే మాట
+ఒకరు వచ్చారు~ఒకరు వచ్చారు
+ఆరుద్ర~ఆరుద్ర
+# probe-fix T15: written percentages and ranges pass through ITN untouched
+12.5%~12.5%
+10-20~10-20
+# review-fix R-P1: brackets and quotes no longer block the number inside them
+[ఐదు]~[ 5 ]
+"ఐదు"~" 5 "
+# review-fix R1: "=" is a TN rewrite; ITN must leave it alone (was 5 సమానం 5)
+5 = 5~5 = 5
+5=5~5 = 5
+a = b~a = b

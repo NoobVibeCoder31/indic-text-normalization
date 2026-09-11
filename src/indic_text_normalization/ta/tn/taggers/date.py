@@ -15,15 +15,10 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.ta.constants import (
-    CHAR,
-    DIGIT,
-    TA_DIGIT,
-    GraphFst,
-    insert_space,
-)
+from indic_text_normalization.core.utils import data_path
+from indic_text_normalization.core.graph_utils import CHAR, DIGIT, GraphFst, insert_space
+from indic_text_normalization.ta.constants import LANG, TA_DIGIT
 from indic_text_normalization.ta.tn.taggers.cardinal import CardinalFst
-from indic_text_normalization.ta.utils import get_abs_path
 
 # Convert Arabic digits (0-9) to Tamil digits (௦-௯)
 arabic_to_tamil_digit = pynini.string_map(
@@ -42,9 +37,9 @@ arabic_to_tamil_digit = pynini.string_map(
 ).optimize()
 arabic_to_tamil_number = pynini.closure(arabic_to_tamil_digit).optimize()
 
-days = pynini.string_file(get_abs_path("data/date/days.tsv"))
-months = pynini.string_file(get_abs_path("data/date/months.tsv"))
-year_suffix = pynini.string_file(get_abs_path("data/date/year_suffix.tsv"))
+days = pynini.string_file(data_path(LANG, "date/days.tsv"))
+months = pynini.string_file(data_path(LANG, "date/months.tsv"))
+year_suffix = pynini.string_file(data_path(LANG, "date/year_suffix.tsv"))
 
 
 class DateFst(GraphFst):

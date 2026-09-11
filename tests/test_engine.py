@@ -31,6 +31,25 @@ class TestEngine:
         assert time.perf_counter() - start < 10
         assert output == " ".join(["ஐந்து ரூபாய்"] * 20)
 
+    def test_many_money_tokens_verbalize_in_linear_time_telugu(self, te_tn: Normalizer) -> None:
+        """
+        The Telugu money verbalizer is also linear in the number of tokens.
+        """
+        text = " ".join(["₹5"] * 20)
+        start = time.perf_counter()
+        output = te_tn.normalize(text)
+        assert time.perf_counter() - start < 10
+        assert output == " ".join(["ఐదు రూపాయలు"] * 20)
+
+    def test_multi_word_units_use_plain_spaces_telugu(self, te_tn: Normalizer) -> None:
+        """
+        Multi-word Telugu units and symbols must not leak U+00A0 NO-BREAK SPACE.
+        """
+        for text in ["5cm2", "-40°C", "→", "5 → 10", "™"]:
+            output = te_tn.normalize(text)
+            assert "\u00a0" not in output
+            assert te_tn.normalize(output) == output
+
     def test_multi_word_symbols_use_plain_spaces(self, ta_tn: Normalizer) -> None:
         """
         Multi-word whitelist values must not leak U+00A0 NO-BREAK SPACE into the output.

@@ -5,10 +5,10 @@ description = "WFST-based text normalization (TN) and inverse text normalization
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
-authors = [{ name = "veera.puthiran", email = "veera.puthiran@zohocorp.com" }]
+authors = [{ name = "veera.puthiran"}]
 requires-python = ">=3.10,<3.13"
 dependencies = ["pynini==2.1.6.post1"]
-keywords = ["text-normalization", "itn", "tts", "asr", "tamil", "indic", "wfst"]
+keywords = ["text-normalization", "itn", "tts", "asr", "tamil", "telugu", "indic", "wfst"]
 classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -48,11 +48,10 @@ ignore = ["E501", "RUF001", "RUF002", "RUF003"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["S101"]
-"benchmarks/**/*.py" = ["S311"]
 
 [tool.mypy]
 strict = true
-files = ["src", "tests", "benchmarks"]
+files = ["src", "tests"]
 
 [[tool.mypy.overrides]]
 module = "pynini.*"

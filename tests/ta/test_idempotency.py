@@ -17,7 +17,26 @@ DATA_DIR = Path(__file__).parent.parent / "data" / "ta"
 KNOWN_TN_FAILURES: set[str] = set()
 
 # Spoken symbols glued to digits, letters, currency or each other (probe-fix P1/P18).
-_SYMBOL_ATOMS = ["5", "௫", "அ", "₹", "%", "#", "+", "*", "&", "<", ">", "^", "(", ")", "/", "-"]
+_SYMBOL_ATOMS = [
+    "5",
+    "௫",
+    "அ",
+    "₹",
+    "%",
+    "#",
+    "+",
+    "*",
+    "&",
+    "<",
+    ">",
+    "^",
+    "(",
+    ")",
+    "/",
+    "-",
+    "@",
+    "_",
+]
 _SYMBOL_PAIRS = {a + b for a in _SYMBOL_ATOMS for b in _SYMBOL_ATOMS} | {
     a + " " + b for a in _SYMBOL_ATOMS for b in _SYMBOL_ATOMS
 }

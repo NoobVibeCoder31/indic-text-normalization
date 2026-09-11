@@ -1,0 +1,31 @@
+# input~expected[~alt_expected...]
+పన్నెండు దశాంశం ఐదు~12.5
+సున్నా దశాంశం ఐదు~0.5
+మూడు దశాంశం ఒకటి నాలుగు~3.14
+ఋణ రెండు దశాంశం ఐదు~-2.5
+మైనస్ రెండు దశాంశం ఐదు~-2.5
+పన్నెండు పాయింట్ ఐదు~12.5
+పన్నెండు పాయింటు ఐదు~12.5
+వంద దశాంశం రెండు ఐదు~100.25
+# fused half words (bare అర/పావు stay nouns, see word.txt)
+ఒకటిన్నర~1.5
+రెండున్నర కిలో~2.5 కిలో
+పదిన్నర~10.5
+# dotted chains round-trip
+ఒకటి దశాంశం రెండు దశాంశం మూడు~1.2.3
+# a scale word after a decimal is kept as a word, never expanded into zeros
+ఐదు దశాంశం ఐదు లక్షలు~5.5 లక్షలు
+ఒకటి దశాంశం ఐదు కోట్లు~1.5 కోట్లు
+రెండు దశాంశం ఐదు లక్షల మంది~2.5 లక్షల మంది
+# probe-fix T10: three-digit fractional words
+మూడు దశాంశం నూట నలభై ఒకటి~3.141
+# review-fix R2: the sign field reaches the ITN decimal path as well
+ప్లస్ ఐదు దశాంశం ఐదు~+5.5
+ప్లస్ సున్నా దశాంశం సున్నా~+0.0
+# a scale word too large to expand stays a word beside a fused half form
+ఒకటిన్నర లక్షలు~1.5 లక్షలు
+# sweep-fix S4: the vulgar-sign readings TN emits
+ఐదు మరియు అర~5.5
+రెండు మరియు పావు~2.25
+రెండు మరియు ముప్పావు~2.75
+ఇరవై మరియు అర~20.5

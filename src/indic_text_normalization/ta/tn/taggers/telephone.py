@@ -15,18 +15,18 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.ta.constants import (
-    DIGIT,
-    SIGMA,
-    TA_DIGIT,
-    GraphFst,
+from indic_text_normalization.core.utils import data_path
+from indic_text_normalization.core.graph_utils import (
     delete_space,
+    DIGIT,
+    GraphFst,
     insert_space,
+    SIGMA,
 )
+from indic_text_normalization.ta.constants import LANG, TA_DIGIT
 from indic_text_normalization.ta.tn.taggers.cardinal import CardinalFst
-from indic_text_normalization.ta.utils import get_abs_path
 
-digit_to_word = pynini.string_file(get_abs_path("data/telephone/number.tsv"))
+digit_to_word = pynini.string_file(data_path(LANG, "telephone/number.tsv"))
 
 any_digit = pynini.union(DIGIT, TA_DIGIT)
 single_digit_to_word = (any_digit @ digit_to_word).optimize()

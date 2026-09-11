@@ -2,15 +2,8 @@
 Union of all Tamil ITN per-class verbalizers.
 """
 
-from indic_text_normalization.ta.constants import GraphFst
-from indic_text_normalization.ta.itn.verbalizers.cardinal import CardinalFst
-from indic_text_normalization.ta.itn.verbalizers.date import DateFst
-from indic_text_normalization.ta.itn.verbalizers.decimal import DecimalFst
-from indic_text_normalization.ta.itn.verbalizers.fraction import FractionFst
-from indic_text_normalization.ta.itn.verbalizers.money import MoneyFst
-from indic_text_normalization.ta.itn.verbalizers.ordinal import OrdinalFst
-from indic_text_normalization.ta.itn.verbalizers.telephone import TelephoneFst
-from indic_text_normalization.ta.itn.verbalizers.time import TimeFst
+from indic_text_normalization.core import itn_verbalizers as generic
+from indic_text_normalization.core.graph_utils import GraphFst
 
 
 class VerbalizeFst(GraphFst):
@@ -22,12 +15,12 @@ class VerbalizeFst(GraphFst):
         super().__init__(name="verbalize", kind="verbalize", deterministic=deterministic)
 
         self.fst = (
-            CardinalFst(deterministic=deterministic).fst
-            | DecimalFst(deterministic=deterministic).fst
-            | FractionFst(deterministic=deterministic).fst
-            | OrdinalFst(deterministic=deterministic).fst
-            | DateFst(deterministic=deterministic).fst
-            | TimeFst(deterministic=deterministic).fst
-            | MoneyFst(deterministic=deterministic).fst
-            | TelephoneFst(deterministic=deterministic).fst
+            generic.CardinalFst(deterministic=deterministic).fst
+            | generic.DecimalFst(deterministic=deterministic).fst
+            | generic.FractionFst(deterministic=deterministic).fst
+            | generic.OrdinalFst(deterministic=deterministic).fst
+            | generic.DateFst(deterministic=deterministic).fst
+            | generic.TimeFst(deterministic=deterministic).fst
+            | generic.MoneyFst(deterministic=deterministic).fst
+            | generic.TelephoneFst(deterministic=deterministic).fst
         )

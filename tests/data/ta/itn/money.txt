@@ -46,3 +46,5 @@
 ஐந்து யென் ஐம்பது சென்~¥5.50
 ஐந்து நைரா ஐம்பது கோபோ~₦5.50
 ஐந்து வான் ஐம்பது ஜியோன்~₩5.50
+# sweep-fix S1: a re-fed written amount with its scale word passes through inside a sentence
+₹5 கோடி ஐந்து பேர்~₹5 கோடி 5 பேர்

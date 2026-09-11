@@ -88,11 +88,16 @@ class NormalizationEngine:
         Tagger grammar producing tagged token strings.
     verbalize : ``pynini.Fst``
         Verbalizer grammar consuming tagged token strings.
+    pre_pass : ``pynini.Fst | None``, optional (default = None)
+        Spacing rewrites composed with the text before it reaches ``classify``.
     """
 
-    def __init__(self, classify: pynini.Fst, verbalize: pynini.Fst) -> None:
+    def __init__(
+        self, classify: pynini.Fst, verbalize: pynini.Fst, pre_pass: pynini.Fst | None = None
+    ) -> None:
         self.classify = classify
         self.verbalize = verbalize
+        self.pre_pass = pre_pass
 
     def normalize(self, text: str) -> str:
         """
@@ -107,6 +112,8 @@ class NormalizationEngine:
             return text
         escaped = pynini.escape(text)
         try:
+            if self.pre_pass is not None:
+                escaped = escaped @ self.pre_pass
             tagged_lattice = escaped @ self.classify
             tagged_text = pynini.shortestpath(tagged_lattice, nshortest=1, unique=True).string()
         except Exception as exc:

@@ -5,7 +5,8 @@ ITN tagger converting spoken Tamil ordinals to digits with an ordinal suffix.
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.ta.constants import CHAR, TA_LETTER, GraphFst
+from indic_text_normalization.core.graph_utils import CHAR, GraphFst, sequential
+from indic_text_normalization.ta.constants import TA_LETTER
 from indic_text_normalization.ta.itn.taggers.cardinal import CardinalFst
 
 
@@ -26,7 +27,7 @@ class OrdinalFst(GraphFst):
             pynini.cross("மா", "ம்"),
             pynini.cross("ற்றா", "று"),
         )
-        stem = (to_cardinal @ cardinal.words_to_digits) | pynini.cross("முதலா", "1")
+        stem = sequential((to_cardinal @ cardinal.words_to_digits) | pynini.cross("முதலா", "1"))
 
         integer = pynutil.insert('integer: "') + stem + pynutil.insert('"')
 
