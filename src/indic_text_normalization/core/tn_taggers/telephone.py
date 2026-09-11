@@ -151,13 +151,14 @@ class TelephoneFst(GraphFst):
         )
         graph |= pynutil.add_weight(cued_digits, 0.1)
 
-        # A standalone +N... (no number following) reads as <plus> <number>, digit by digit
-        # when the run has leading zeros or exceeds the cardinal's range (+000, +007).
+        # A standalone +N... (no number following) reads digit by digit. Only a run the
+        # pre-pass left alone reaches here, which is 11-13 glued digits; the cardinal stops
+        # at nine, so it cannot match and is not embedded (+000 and +91000 are pre-pass work).
         standalone_cc = (
             pynutil.insert('country_code: "')
             + pynini.cross("+", profile.plus_word)
             + insert_space
-            + (cardinal.final_graph | pynutil.add_weight(cardinal.digit_by_digit, 1.0))
+            + cardinal.digit_by_digit
             + pynutil.insert('"')
         )
         graph |= pynutil.add_weight(standalone_cc, 0.3)
