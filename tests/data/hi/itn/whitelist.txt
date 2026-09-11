@@ -1,0 +1,5 @@
+# ITN keeps abbreviation words unchanged
+डॉक्टर~डॉक्टर
+पाँच प्रतिशत~5 प्रतिशत
+# a spoken sign word before a number is the sign
+पाँच प्लस तीन बराबर आठ~5 +3 बराबर 8
